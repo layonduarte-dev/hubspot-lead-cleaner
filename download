@@ -1,0 +1,162 @@
+# ---------------------------------------------------------------------------
+# mapping.yaml
+# Configuração externa do pipeline de limpeza.
+# Editar AQUI (sem mexer no código) para ajustar sinônimos, typos e listas.
+# ---------------------------------------------------------------------------
+
+# Propriedades-alvo do HubSpot e os sinônimos que devem ser reconhecidos
+# nos cabeçalhos da planilha de entrada. As chaves são as propriedades
+# finais; os valores são variações que o fuzzy-matcher deve reconhecer.
+# A comparação é feita sem acento, em minúsculas e ignorando pontuação.
+header_synonyms:
+  Nome:
+    - nome
+    - first name
+    - firstname
+    - primeiro nome
+    - nome do contato
+    - contato
+    - cliente
+    - lead
+  Sobrenome:
+    - sobrenome
+    - last name
+    - lastname
+    - ultimo nome
+    - apelido
+  Email:
+    - email
+    - e-mail
+    - e mail
+    - endereco de email
+    - email do contato
+    - mail
+    - correio eletronico
+  Número de Telefone:
+    - telefone
+    - numero de telefone
+    - numero
+    - celular
+    - whatsapp
+    - whats
+    - fone
+    - phone
+    - phone number
+    - contato telefonico
+  Nome da Empresa:
+    - empresa
+    - nome da empresa
+    - company
+    - company name
+    - organizacao
+    - razao social
+    - corporacao
+  Cargo:
+    - cargo
+    - funcao
+    - job title
+    - jobtitle
+    - title
+    - posicao
+    - ocupacao
+    - role
+  Cargo RH:
+    - cargo rh
+    - cargo de rh
+    - area rh
+    - perfil rh
+    - cargo solides
+  Faixa de Colaboradores:
+    - faixa de colaboradores
+    - numero de funcionarios
+    - num funcionarios
+    - qtd funcionarios
+    - quantidade de funcionarios
+    - tamanho da empresa
+    - company size
+    - employees
+    - porte da empresa
+    - colaboradores
+
+# Limite de similaridade (0..1) para aceitar uma correspondência aproximada
+# de cabeçalho que não esteja na lista de sinônimos exatos.
+fuzzy_threshold: 0.82
+
+# Correções automáticas de domínios escritos errado.
+# A chave é o domínio errado (depois do @), o valor é o correto.
+domain_typos:
+  gmal.com: gmail.com
+  gmial.com: gmail.com
+  gmai.com: gmail.com
+  gmaill.com: gmail.com
+  gmail.con: gmail.com
+  gmail.co: gmail.com
+  gmail.cm: gmail.com
+  gmail.comm: gmail.com
+  gnail.com: gmail.com
+  hotmial.com: hotmail.com
+  hotmai.com: hotmail.com
+  hotmail.con: hotmail.com
+  hotmail.co: hotmail.com
+  hotmail.cm: hotmail.com
+  homail.com: hotmail.com
+  hotmaill.com: hotmail.com
+  outlok.com: outlook.com
+  outloo.com: outlook.com
+  outllook.com: outlook.com
+  outlook.con: outlook.com
+  outlook.co: outlook.com
+  yaho.com: yahoo.com
+  yahho.com: yahoo.com
+  yahoo.con: yahoo.com
+  yahoo.co: yahoo.com
+  uol.com: uol.com.br
+  bol.com: bol.com.br
+
+# E-mails / locais "de lixo" — descartados mesmo se a sintaxe for válida.
+# Comparação feita sobre o e-mail inteiro normalizado.
+junk_emails:
+  - teste@teste.com
+  - test@test.com
+  - asdf@asdf.com
+  - aaa@aaa.com
+  - abc@abc.com
+  - email@email.com
+  - exemplo@exemplo.com
+  - example@example.com
+  - nao@tem.com
+  - sememail@semail.com
+  - a@a.com
+  - x@x.com
+
+# Prefixos (parte antes do @) que indicam caixa genérica/institucional.
+# Nesses casos NÃO se extrai nome a partir do e-mail.
+generic_prefixes:
+  - contato
+  - vendas
+  - comercial
+  - rh
+  - sac
+  - financeiro
+  - administrativo
+  - adm
+  - atendimento
+  - suporte
+  - marketing
+  - compras
+  - faturamento
+  - cobranca
+  - juridico
+  - diretoria
+  - recrutamento
+  - selecao
+  - info
+  - noreply
+  - no-reply
+  - naoresponda
+  - contabil
+  - fiscal
+  - dp
+  - recepcao
+  - secretaria
+  - ouvidoria

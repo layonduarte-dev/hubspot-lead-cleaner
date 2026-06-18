@@ -1,0 +1,177 @@
+"""
+pipeline.py
+===========
+
+Orquestra todas as etapas da higienização, na ordem correta:
+
+    1.  Carrega a entrada (CSV ou Google Sheets).
+    2.  Mapeia os cabeçalhos para as 8 propriedades-alvo.
+    3.  Trata e-mails (normaliza, corrige domínio, valida, detecta lixo).
+    4.  Separa linhas inválidas (vão para a aba "Inválidos").
+    5.  Deduplica por e-mail, mantendo o registro mais completo.
+    6.  Enriquece Nome/Sobrenome a partir do e-mail quando faltam.
+    7.  Mapeia Cargo -> Cargo RH (lista oficial).
+    8.  Garante as colunas-alvo + preserva as colunas pedidas pelo usuário.
+    9.  Devolve (df_dados, df_invalidos, relatorio).
+
+O pipeline NÃO escreve arquivos — quem decide o destino (xlsx/Sheets) é o
+chamador (cli.py). Isso mantém a função pura e testável.
+"""
+
+from __future__ import annotations
+
+import re
+from typing import List, Optional, Tuple
+
+import pandas as pd
+
+from . import email_rules, name_enrich
+from .cargo_mapper import mapear_cargo
+from .config import Settings
+from .header_mapper import mapear_cabecalhos
+from .io_readers import carregar_entrada
+from .report import Relatorio
+
+
+def processar(
+    origem: str,
+    settings: Settings,
+    preservar: Optional[List[str]] = None,
+    gsheets_auth: bool = False,
+) -> Tuple[pd.DataFrame, pd.DataFrame, Relatorio]:
+    """
+    Executa o pipeline completo e devolve ``(df_dados, df_invalidos, relatorio)``.
+
+    Parâmetros
+    ----------
+    origem : str
+        Caminho do CSV ou link do Google Sheets.
+    settings : Settings
+        Configuração carregada de mapping.yaml.
+    preservar : list[str] | None
+        Nomes de colunas (como aparecem na ENTRADA) que não devem ser
+        excluídas nem alteradas. Vão para o final, intactas.
+    gsheets_auth : bool
+        Se True, lê Google Sheets em modo autenticado.
+    """
+    preservar = preservar or []
+    rel = Relatorio()
+
+    # ---- 1. Carregar entrada --------------------------------------------
+    df = carregar_entrada(origem, gsheets_auth=gsheets_auth)
+    rel.linhas_entrada = len(df)
+
+    # Guarda uma cópia das colunas a preservar ANTES de qualquer renomeação,
+    # indexada pela posição original para reanexar no fim sem alterações.
+    colunas_preservadas_existentes = [c for c in preservar if c in df.columns]
+    rel.colunas_preservadas = colunas_preservadas_existentes
+    df_preservado = (
+        df[colunas_preservadas_existentes].copy()
+        if colunas_preservadas_existentes
+        else None
+    )
+
+    # ---- 2. Mapear cabeçalhos -------------------------------------------
+    # Não renomeamos colunas que o usuário pediu para preservar.
+    mapa = mapear_cabecalhos(list(df.columns), settings)
+    mapa = {orig: alvo for orig, alvo in mapa.items() if orig not in preservar}
+    df = df.rename(columns=mapa)
+
+    # Garante a existência da coluna Email (chave). Sem ela, não há o que fazer.
+    if "Email" not in df.columns:
+        raise ValueError(
+            "Nenhuma coluna de e-mail foi reconhecida na planilha. "
+            "Verifique os cabeçalhos ou ajuste os sinônimos em "
+            "config/mapping.yaml (seção header_synonyms -> Email)."
+        )
+
+    # ---- 3. Tratar e-mails ----------------------------------------------
+    # Guarda os valores originais ANTES de sobrescrever (para o relatório).
+    emails_originais = df["Email"].tolist()
+
+    # Aplica o funil de classificação célula a célula.
+    resultados = df["Email"].apply(lambda v: email_rules.classificar_email(v, settings))
+    df["Email"] = resultados.apply(lambda r: r[0])
+    validade = resultados.apply(lambda r: r[1])
+    motivos = resultados.apply(lambda r: r[2])
+
+    # Conta domínios corrigidos (compara antes x depois da normalização).
+    _contar_correcoes(emails_originais, resultados.tolist(), rel)
+
+    # ---- 4. Separar inválidos -------------------------------------------
+    df_invalidos = df[~validade].copy()
+    df_invalidos["_motivo"] = motivos[~validade]
+    rel.linhas_sem_email = int((df_invalidos["_motivo"] == "E-mail ausente").sum())
+    rel.sintaxe_invalida = int((df_invalidos["_motivo"] == "Sintaxe inválida").sum())
+    rel.lixo_removido = int(
+        (df_invalidos["_motivo"] == "E-mail de lixo/descartável").sum()
+    )
+
+    df = df[validade].copy()
+
+    # ---- 5. Deduplicar ---------------------------------------------------
+    antes_dedup = len(df)
+    df = email_rules.deduplicar(df, email_col="Email")
+    rel.duplicatas_removidas = antes_dedup - len(df)
+
+    # ---- 6. Garantir colunas-alvo e enriquecer nome ----------------------
+    for prop in ("Nome", "Sobrenome"):
+        if prop not in df.columns:
+            df[prop] = pd.NA
+    rel.nomes_enriquecidos = name_enrich.preencher_nomes_faltantes(df, settings)
+
+    # ---- 6b. Limpeza leve de telefone -----------------------------------
+    # Mantém o formato (dígitos, +, parênteses, traços) mas remove espaços
+    # supérfluos e placeholders. Telefone fica como texto na saída.
+    if "Número de Telefone" in df.columns:
+        df["Número de Telefone"] = df["Número de Telefone"].apply(_limpar_telefone)
+
+    # ---- 7. Mapear Cargo -> Cargo RH ------------------------------------
+    if "Cargo" in df.columns:
+        # Cargo RH é derivado do Cargo, sem destruir o texto original.
+        df["Cargo RH"] = df["Cargo"].apply(mapear_cargo)
+        rel.cargos_mapeados = int(df["Cargo RH"].notna().sum())
+        rel.cargos_outros = int((df["Cargo RH"] == "Outros").sum())
+    elif "Cargo RH" in df.columns:
+        # Se já veio uma coluna Cargo RH, normaliza para a lista oficial.
+        df["Cargo RH"] = df["Cargo RH"].apply(mapear_cargo)
+        rel.cargos_mapeados = int(df["Cargo RH"].notna().sum())
+        rel.cargos_outros = int((df["Cargo RH"] == "Outros").sum())
+
+    # ---- 8. Montar saída: alvo + preservadas ----------------------------
+    colunas_saida = [p for p in settings.target_properties if p in df.columns]
+    df_final = df[colunas_saida].copy()
+
+    # Reanexa colunas preservadas (alinhando pelo índice original).
+    if df_preservado is not None:
+        df_final = df_final.join(df_preservado, how="left")
+
+    rel.linhas_finais = len(df_final)
+
+    return df_final, df_invalidos, rel
+
+
+def _limpar_telefone(valor):
+    """
+    Limpeza conservadora de telefone: remove espaços das pontas e internos,
+    descarta placeholders. Preserva +, parênteses e traços (HubSpot aceita).
+    """
+    if valor is None or (isinstance(valor, float) and pd.isna(valor)):
+        return pd.NA
+    s = str(valor).strip()
+    if s.lower() in ("", "nan", "none", "null", "na"):
+        return pd.NA
+    s = re.sub(r"\s+", "", s)  # remove espaços internos
+    return s or pd.NA
+
+
+def _contar_correcoes(emails_originais, resultados, rel: Relatorio) -> None:
+    """
+    Determina quais e-mails tiveram o domínio corrigido, para o relatório.
+    Compara o e-mail normalizado (sem correção) com o e-mail final.
+    """
+    for valor_original, (final, _valido, _motivo) in zip(emails_originais, resultados):
+        bruto = email_rules.normalizar_email(valor_original)
+        if bruto and final and bruto != final and "@" in bruto and "@" in final:
+            if bruto.split("@")[1] != final.split("@")[1]:
+                rel.dominios_corrigidos.append((bruto, final))

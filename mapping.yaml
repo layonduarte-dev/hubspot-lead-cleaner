@@ -1,0 +1,149 @@
+"""
+io_writers.py
+=============
+
+Saída da aplicação. Dois destinos:
+
+    - .xlsx (padrão, zero-config): gera um arquivo com 3 abas
+      (Dados / Inválidos / Log). Pronto para abrir no Excel ou subir no
+      Google Drive e abrir como Google Sheets.
+
+    - Google Sheets (requer credenciais): cria uma nova planilha na conta da
+      service account e devolve o link. Exige GOOGLE_SERVICE_ACCOUNT_FILE.
+
+A escrita força colunas de telefone como TEXTO, para o Excel/Sheets não
+transformar "0031..." em número nem usar notação científica.
+"""
+
+from __future__ import annotations
+
+import os
+from datetime import datetime
+from typing import Optional
+
+import pandas as pd
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
+
+# Colunas que devem ser sempre tratadas como texto no arquivo final.
+_COLS_TEXTO = {"Número de Telefone", "Telefone", "CPF", "CNPJ", "CPF/CNPJ"}
+
+
+def _escrever_aba(ws, df: pd.DataFrame) -> None:
+    """Escreve um DataFrame numa worksheet, com cabeçalho estilizado."""
+    if df is None or df.empty:
+        ws.append(["(vazio)"])
+        return
+
+    colunas = list(df.columns)
+    ws.append(colunas)
+
+    for row in df.itertuples(index=False):
+        ws.append([v if pd.notna(v) else "" for v in row])
+
+    # Força colunas de texto (telefone/documento) com number_format '@'.
+    for col_nome in _COLS_TEXTO:
+        if col_nome in colunas:
+            idx = colunas.index(col_nome) + 1
+            for row in ws.iter_rows(min_row=2, min_col=idx, max_col=idx):
+                for cell in row:
+                    cell.number_format = "@"
+                    if cell.value not in (None, ""):
+                        cell.value = str(cell.value)
+
+    # Cabeçalho estilizado.
+    for cell in ws[1]:
+        cell.font = Font(name="Arial", bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", start_color="2F5496")
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    # Largura de coluna automática (com teto, para não ficar gigante).
+    for i, col in enumerate(colunas, start=1):
+        largura = max(
+            len(str(col)),
+            df[col].fillna("").astype(str).map(len).max() if not df.empty else 0,
+        )
+        ws.column_dimensions[get_column_letter(i)].width = min(largura + 3, 45)
+
+
+def escrever_xlsx(
+    df_dados: pd.DataFrame,
+    df_invalidos: pd.DataFrame,
+    log_texto: str,
+    pasta_saida: str = "output",
+    nome_base: Optional[str] = None,
+) -> str:
+    """
+    Gera o arquivo .xlsx com 3 abas e devolve o caminho do arquivo.
+    """
+    os.makedirs(pasta_saida, exist_ok=True)
+    if nome_base is None:
+        nome_base = f"hubspot_limpo_{datetime.now():%Y%m%d_%H%M%S}"
+    caminho = os.path.join(pasta_saida, f"{nome_base}.xlsx")
+
+    wb = Workbook()
+
+    ws_dados = wb.active
+    ws_dados.title = "Dados"
+    _escrever_aba(ws_dados, df_dados)
+
+    ws_inv = wb.create_sheet("Inválidos")
+    _escrever_aba(ws_inv, df_invalidos)
+
+    ws_log = wb.create_sheet("Log")
+    for linha in log_texto.splitlines():
+        ws_log.append([linha])
+
+    wb.save(caminho)
+    return caminho
+
+
+def escrever_google_sheets(
+    df_dados: pd.DataFrame,
+    df_invalidos: pd.DataFrame,
+    titulo: Optional[str] = None,
+    compartilhar_com: Optional[str] = None,
+) -> str:
+    """
+    Cria uma nova planilha no Google Sheets na conta da service account e
+    devolve o link. Requer GOOGLE_SERVICE_ACCOUNT_FILE.
+
+    Se ``compartilhar_com`` for informado (um e-mail), dá acesso de editor a
+    esse e-mail — útil porque a planilha nasce na conta de serviço, não na sua.
+    """
+    import gspread
+
+    cred_file = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE")
+    if not cred_file or not os.path.exists(cred_file):
+        raise FileNotFoundError(
+            "GOOGLE_SERVICE_ACCOUNT_FILE não definido ou inexistente. "
+            "Configure a service account para usar a saída em Google Sheets, "
+            "ou use a saída .xlsx (padrão)."
+        )
+
+    gc = gspread.service_account(filename=cred_file)
+    if titulo is None:
+        titulo = f"HubSpot Limpo {datetime.now():%Y-%m-%d %H:%M}"
+
+    planilha = gc.create(titulo)
+
+    # Aba Dados.
+    aba_dados = planilha.sheet1
+    aba_dados.update_title("Dados")
+    aba_dados.update(
+        [df_dados.columns.tolist()] + df_dados.fillna("").astype(str).values.tolist()
+    )
+
+    # Aba Inválidos.
+    if df_invalidos is not None and not df_invalidos.empty:
+        aba_inv = planilha.add_worksheet("Inválidos", rows=100, cols=20)
+        aba_inv.update(
+            [df_invalidos.columns.tolist()]
+            + df_invalidos.fillna("").astype(str).values.tolist()
+        )
+
+    if compartilhar_com:
+        planilha.share(compartilhar_com, perm_type="user", role="writer")
+
+    return planilha.url
