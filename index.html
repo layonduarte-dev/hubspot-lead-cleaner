@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HubSpot Lead Cleaner</title>
+<style>
+  :root{--bg:#faf9f5;--surface:#ffffff;--surface-2:#f1efe8;--border:#e3e1d8;--border-2:#d3d1c7;--text:#1a1a18;--text-2:#5f5e5a;--text-3:#888780;--accent:#1a1a18;--green:#1D9E75;--amber:#BA7517;--red:#A32D2D;--blue:#185FA5;}
+  @media (prefers-color-scheme:dark){:root{--bg:#1f1e1b;--surface:#2a2925;--surface-2:#34322d;--border:#3d3b35;--border-2:#4a4842;--text:#f0efe9;--text-2:#b4b2a9;--text-3:#888780;--accent:#f0efe9;--green:#5DCAA5;--amber:#EF9F27;--red:#F09595;--blue:#85B7EB;}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;padding:2rem 1rem;min-height:100vh}
+  .app{max-width:960px;margin:0 auto}
+  .header h1{font-size:26px;font-weight:600;display:flex;align-items:center;gap:10px}
+  .header p{font-size:15px;color:var(--text-2);margin-top:6px}
+  .badge-offline{display:inline-flex;align-items:center;gap:6px;font-size:12px;background:var(--surface-2);color:var(--text-2);padding:4px 12px;border-radius:20px;margin-top:10px}
+  .badge-offline::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--green)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.4rem;margin-bottom:1rem;margin-top:1.2rem}
+  .card h2{font-size:16px;font-weight:600;margin-bottom:.5rem;display:flex;align-items:center;gap:8px}
+  .card .sub{font-size:13px;color:var(--text-2);margin-bottom:1rem}
+  .drop-zone{border:2px dashed var(--border-2);border-radius:10px;padding:2.2rem;text-align:center;cursor:pointer;transition:.15s}
+  .drop-zone:hover,.drop-zone.dragover{background:var(--surface-2);border-color:var(--text-3)}
+  .drop-zone .ico{font-size:36px;display:block;margin-bottom:.6rem;opacity:.5}
+  .drop-zone p{font-size:15px;color:var(--text-2)}
+  .drop-zone small{font-size:12px;color:var(--text-3)}
+  input[type=text],textarea{width:100%;padding:10px 12px;font-size:14px;background:var(--surface);border:1px solid var(--border-2);border-radius:8px;color:var(--text);font-family:inherit}
+  input[type=text]:focus,textarea:focus{outline:none;border-color:var(--text-3);box-shadow:0 0 0 3px rgba(120,120,120,.12)}
+  textarea{min-height:80px;resize:vertical;margin-top:.6rem}
+  button{font-family:inherit;cursor:pointer}
+  .btn{padding:0 1.1rem;height:40px;border:1px solid var(--border-2);border-radius:8px;background:var(--surface);color:var(--text);font-size:14px;transition:.15s;flex:0 0 auto}
+  .btn:hover{background:var(--surface-2)}
+  .prop-grid{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{padding:7px 14px;font-size:13px;border:1.5px solid var(--border-2);border-radius:20px;background:var(--surface);color:var(--text-2);transition:.12s;user-select:none;display:inline-flex;align-items:center;gap:6px}
+  .chip:hover{border-color:var(--text-3)}
+  .chip.on{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+  .chip.locked{opacity:.7;cursor:not-allowed}
+  .chip .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.5}
+  .chip.on .dot{opacity:1}
+  .preserve-row{display:flex;gap:8px}
+  .preserve-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .tag{background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:4px 10px;font-size:13px;color:var(--text-2);display:flex;align-items:center;gap:8px}
+  .tag button{background:none;border:none;color:var(--text-3);font-size:16px;line-height:1;padding:0}
+  .tag button:hover{color:var(--red)}
+  .btn-run{width:100%;padding:.85rem;font-size:16px;font-weight:600;background:var(--accent);color:var(--bg);border:none;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s}
+  .btn-run:hover{opacity:.88}
+  .btn-run:disabled{opacity:.4;cursor:not-allowed}
+  .progress-bar{height:5px;background:var(--surface-2);border-radius:5px;overflow:hidden;margin:1rem 0}
+  .progress-fill{height:100%;background:var(--accent);width:0;transition:width .3s}
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:1.2rem}
+  .stat{background:var(--surface-2);border-radius:10px;padding:.9rem 1.1rem}
+  .stat-label{font-size:12px;color:var(--text-2);margin-bottom:5px}
+  .stat-value{font-size:24px;font-weight:600}
+  .stat-value.green{color:var(--green)}.stat-value.amber{color:var(--amber)}.stat-value.red{color:var(--red)}
+  .detect-box{background:var(--surface-2);border-radius:10px;padding:.9rem 1.1rem;margin-bottom:1rem;font-size:13px;color:var(--text-2);line-height:1.8}
+  .detect-box strong{color:var(--text)}
+  .ai-box{background:var(--surface-2);border:1px solid var(--border-2);border-radius:10px;padding:1rem 1.1rem;margin-bottom:1rem}
+  .ai-box h3{font-size:14px;font-weight:600;margin-bottom:.4rem}
+  .ai-box p{font-size:13px;color:var(--text-2);margin-bottom:.7rem}
+  .ai-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .ai-row input{flex:1;min-width:220px}
+  .ai-status{font-size:13px;margin-top:.6rem;color:var(--text-2)}
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;max-height:480px;overflow-y:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{background:var(--surface-2);padding:9px 13px;text-align:left;font-weight:600;font-size:12px;color:var(--text-2);border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0}
+  td{padding:8px 13px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:230px;overflow:hidden;text-overflow:ellipsis}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:var(--surface-2)}
+  .tab-row{display:flex;gap:4px;margin-bottom:.9rem;flex-wrap:wrap}
+  .tab{padding:7px 16px;font-size:14px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-2)}
+  .tab.active{background:var(--accent);color:var(--bg);border-color:transparent}
+  .btn-dl{padding:.55rem 1.1rem;font-size:13px;border:1px solid var(--border-2);border-radius:8px;background:var(--surface);color:var(--text);display:inline-flex;align-items:center;gap:6px}
+  .btn-dl:hover{background:var(--surface-2)}
+  .log-box{background:var(--surface-2);border-radius:10px;padding:1.1rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--text-2);white-space:pre-wrap;line-height:1.8;max-height:380px;overflow-y:auto}
+  .corr{font-size:13px;color:var(--text-2);margin-bottom:.8rem}
+  .corr code{background:var(--surface-2);padding:2px 7px;border-radius:5px;font-size:12px}
+  .hidden{display:none}
+  .footer{text-align:center;font-size:12px;color:var(--text-3);margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>✨ HubSpot Lead Cleaner</h1>
+    <p>Higienização de planilhas de leads/contatos para importação no HubSpot</p>
+    <span class="badge-offline">100% offline — nenhum dado sai do seu computador (exceto se você usar o refino por IA)</span>
+  </div>
+
+  <div class="card">
+    <h2>📤 Planilha de entrada</h2>
+    <div class="drop-zone" id="drop-zone" tabindex="0" role="button">
+      <span class="ico">🗂️</span>
+      <p>Arraste um arquivo CSV aqui ou clique para selecionar</p>
+      <small>Suporta CSV em UTF-8 ou Latin1</small>
+    </div>
+    <input type="file" id="file-input" accept=".csv" class="hidden">
+    <div id="file-info" class="hidden" style="margin-top:.8rem;font-size:14px;color:var(--text-2)"></div>
+  </div>
+
+  <div class="card">
+    <h2>🎯 Propriedades desta planilha</h2>
+    <p class="sub">Marque as propriedades que existem/quer no resultado. O app só trata e exporta as marcadas. (E-mail é sempre obrigatório.)</p>
+    <div class="prop-grid" id="prop-grid"></div>
+    <div id="outros-box" class="hidden">
+      <textarea id="outros-text" placeholder="Explique o que a propriedade 'Outros' deve conter. Ex: preencher todas as linhas com 'Origem: Feira RH 2026'"></textarea>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🔒 Colunas a preservar intactas</h2>
+    <p class="sub">Liste colunas que não devem ser alteradas nem removidas (saem como vieram).</p>
+    <div class="preserve-row">
+      <input type="text" id="preserve-input" placeholder="Ex: ID SL, Origem, Tag...">
+      <button class="btn" onclick="addPreserve()">Adicionar</button>
+    </div>
+    <div class="preserve-tags" id="preserve-tags"></div>
+  </div>
+
+  <button class="btn-run" id="btn-run" disabled onclick="runPipeline()">⚡ Higienizar planilha</button>
+  <div class="progress-bar hidden" id="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+
+  <div id="results" class="hidden">
+    <div class="card">
+      <h2>📊 Resultado</h2>
+      <div class="detect-box" id="detect-box"></div>
+
+      <div class="ai-box hidden" id="ai-box">
+        <h3>🤖 Refinar nomes com IA <span id="ai-count" style="font-weight:400;color:var(--text-2)"></span></h3>
+        <p>Alguns e-mails têm nomes "grudados" que as regras não conseguem separar com segurança (ficaram em branco). A IA pode tentar extraí-los. Requer uma chave de API da Anthropic — ela fica só no seu navegador e é usada para chamar a API direto.</p>
+        <div class="ai-row">
+          <input type="text" id="ai-key" placeholder="Cole sua API key (sk-ant-...)" autocomplete="off">
+          <button class="btn" id="ai-run" onclick="refinarComIA()">Refinar agora</button>
+        </div>
+        <div class="ai-status hidden" id="ai-status"></div>
+      </div>
+
+      <div class="stats-grid" id="stats-grid"></div>
+      <div class="corr" id="corrections"></div>
+      <div class="tab-row">
+        <button class="tab active" onclick="showTab('dados')" id="tab-dados">Dados limpos</button>
+        <button class="tab" onclick="showTab('invalidos')" id="tab-invalidos">Inválidos</button>
+        <button class="tab" onclick="showTab('log')" id="tab-log">Log</button>
+      </div>
+      <div id="pane-dados">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:.6rem">
+          <button class="btn-dl" onclick="downloadCSV('dados')">⬇️ Baixar CSV limpo</button>
+        </div>
+        <div class="table-wrap" id="table-dados"></div>
+      </div>
+      <div id="pane-invalidos" class="hidden">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:.6rem">
+          <button class="btn-dl" onclick="downloadCSV('invalidos')">⬇️ Baixar inválidos</button>
+        </div>
+        <div class="table-wrap" id="table-invalidos"></div>
+      </div>
+      <div id="pane-log" class="hidden"><div class="log-box" id="log-content"></div></div>
+    </div>
+  </div>
+
+  <div class="footer">HubSpot Lead Cleaner v4 — aplicação standalone</div>
+</div>
+
+<script>
+/* ===================== TABELAS DE REFERÊNCIA ===================== */
+const DOMAIN_TYPOS={'gmal.com':'gmail.com','gmial.com':'gmail.com','gmai.com':'gmail.com','gmaill.com':'gmail.com','gmail.con':'gmail.com','gmail.co':'gmail.com','gmail.cm':'gmail.com','gnail.com':'gmail.com','hotmial.com':'hotmail.com','hotmai.com':'hotmail.com','hotmail.con':'hotmail.com','hotmail.co':'hotmail.com','homail.com':'hotmail.com','outlok.com':'outlook.com','outloo.com':'outlook.com','outllook.com':'outlook.com','outlook.con':'outlook.com','yaho.com':'yahoo.com','yahho.com':'yahoo.com','yahoo.con':'yahoo.com','uol.com':'uol.com.br','bol.com':'bol.com.br'};
+const JUNK_EMAILS=new Set(['teste@teste.com','test@test.com','asdf@asdf.com','aaa@aaa.com','abc@abc.com','email@email.com','exemplo@exemplo.com','example@example.com','a@a.com','x@x.com']);
+const GENERIC_PREFIXES=new Set(['contato','vendas','comercial','rh','sac','financeiro','administrativo','adm','administracao','atendimento','suporte','marketing','compras','faturamento','cobranca','juridico','diretoria','recrutamento','selecao','info','noreply','no-reply','naoresponda','contabil','fiscal','dp','recepcao','secretaria','ouvidoria','gestao','gerencia','operacoes','ti','sistemas','dev','desenvolvimento','financas','rhempresa','contato1']);
+const HUBSPOT_TARGETS={
+  'Nome':['nome','first name','firstname','primeiro nome','nome do contato','contato','cliente','lead','nome completo'],
+  'Sobrenome':['sobrenome','last name','lastname','ultimo nome','apelido'],
+  'Email':['email','e-mail','e mail','endereco de email','mail','correio eletronico'],
+  'Número de Telefone':['telefone','numero de telefone','celular','whatsapp','whats','fone','phone','telefone fixo'],
+  'CPF/CNPJ':['cpf','cnpj','cpf/cnpj','documento','nro inscricao','inscricao'],
+  'Nome da Empresa':['empresa','nome da empresa','company','razao social','organizacao'],
+  'Cargo':['cargo','funcao','job title','posicao','role','nivel','nivel hierarquico'],
+  'Cargo RH':['cargo rh','cargo de rh'],
+  'Faixa de Colaboradores':['faixa de colaboradores','colaboradores','numero de funcionarios','company size','employees','porte da empresa','tamanho da empresa','qtd funcionarios','quantidade de colaboradores'],
+  'Valor da Mensalidade':['valor da mensalidade','mensalidade','valor mensal','ticket','mrr','valor do plano','valor'],
+  'Cliente Sólides/Tangerino?':['cliente solides','solides','tangerino','cliente solides/tangerino','ja e cliente','cliente solides/tangerino?'],
+  'Observação':['observacao','observacoes','obs','notas','nota','comentario','comentarios']
+};
+const FAIXAS_OFICIAIS=[
+  {low:1,high:9,label:'Até 9 funcionários'},{low:10,high:19,label:'De 10 a 19 funcionários'},
+  {low:20,high:29,label:'De 20 a 29 funcionários'},{low:30,high:49,label:'De 30 a 49 funcionários'},
+  {low:50,high:99,label:'De 50 a 99 funcionários'},{low:100,high:249,label:'De 100 a 249 funcionários'},
+  {low:250,high:499,label:'De 250 a 499 funcionários'},{low:500,high:999,label:'De 500 a 999 funcionários'},
+  {low:1000,high:Infinity,label:'1000 funcionários ou mais'}
+];
+const NAO_PESSOAL=new Set(['rh','dp','ti','tib','ai','sgi','dho','adm','financeiro','administrativo','comercial','marketing','vendas','suporte','atendimento','onboarding','recrutamento','selecao','departamento','setor','gestao','gestor','gestora','coordenacao','diretoria','gerencia','recursos','humanos','pessoal','contato','empresa','equipe','time','grupo','analista','assistente','auxiliar','coordenador','coordenadora','gerente','diretor','diretora','supervisor','supervisora','consultor','consultora','estagiario','estagiaria','socio','proprietario','founder','ceo','presidente','head','operacoes','operacional','produto','produtos','tecnologia','juridico','fiscal','contabil','contabilidade','logistica','compras','faturamento','cobranca','recepcao','secretaria','ouvidoria','sac']);
+const COMPANY_WORDS=new Set(['pizzaria','restaurante','bar','padaria','mercado','mercadinho','supermercado','loja','lojas','farmacia','drogaria','clinica','hospital','escola','colegio','academia','hotel','pousada','oficina','posto','transportadora','construtora','imobiliaria','banco','seguros','seguradora','fabrica','atacado','atacadista','varejo','magazine','boutique','salao','barbearia','petshop','lanchonete','cafeteria','cafe','sorveteria','hamburgueria','churrascaria','buffet','eventos','comercio','comercial','industria','servicos','tecnologia','solucoes','consultoria','distribuidora','transportes','empreendimentos','participacoes','holding','grupo','associacao','instituto','fundacao','representacoes','films','filmes','studio','estudio','design','digital','agencia','produtora','editora','engenharia','arquitetura','advocacia','odonto','odontologia','veterinaria','imoveis','corretora','factory','company','corp','tech','labs','ventures','capital','invest','investimentos']);
+const EMPRESA_RE=/\b(ltda|me|epp|eireli|s\/?a|sa|s\.a|cia)\b/i;
+const TAGS_PURAS=new Set(['rh','dp','ti','tib','ai','sgi','dho','onboarding','recrutamento','selecao']);
+const NOMES_COMUNS=new Set(['ana','maria','joao','jose','antonio','francisco','carlos','paulo','pedro','lucas','luiz','luis','marcos','gabriel','rafael','daniel','marcelo','bruno','eduardo','felipe','raimundo','rodrigo','manoel','fernando','gustavo','tiago','thiago','victor','vitor','andre','fabio','leonardo','diego','douglas','sergio','julio','julia','juliana','jessica','adriana','fernanda','patricia','aline','sandra','camila','amanda','bruna','leticia','luciana','vanessa','mariana','gabriela','larissa','beatriz','bianca','carla','catarina','cristina','daniela','debora','elaine','flavia','helena','isabela','isabel','jaqueline','karina','kelly','laura','lais','livia','lorena','marcia','marta','michele','monica','natalia','priscila','rafaela','raquel','renata','roberta','rosana','sabrina','sara','sarah','simone','sonia','tatiane','tania','vera','vivian','viviane','alice','clara','cecilia','manuela','sofia','sophia','valentina','heloisa','luiza','lara','antonia','adriano','alexandre','alex','anderson','arthur','breno','caio','cesar','cristiano','davi','denis','edson','emerson','enzo','erick','evandro','fabricio','geraldo','gilberto','guilherme','henrique','hugo','igor','ivan','jair','jonas','jorge','juliano','leandro','marcio','mateus','matheus','mauricio','murilo','nelson','nicolas','otavio','ricardo','roberto','robson','ronaldo','samuel','vinicius','wagner','wesley','william','willian','yuri','agatha','alessandra','alessandro','aparecida','augusto','benedito','claudia','claudio','cleber','cleiton','cristiane','damiao','eliane','elias','eliza','ellen','everton','geovana','giovana','giovanna','jefferson','jeferson','joana','joaquim','keila','kevin','kaua','lucia','luciano','marcela','milena','natan','nathan','pamela','pietro','regina','reginaldo','renan','rita','rogerio','sandro','silvana','silvia','tatiana','valeria','wallace','washington','flavio','vagner','elisangela','rosangela','marcella','isadora','yasmin','theo','noah','bernardo','miguel','heitor','lorenzo','benjamin','anthony','gael','ravi','bryan','levi','emanuel','francisca','luana','eduarda','mirella','rebeca','esther','marina','ester','vitoria','marcelo','rafaela']);
+
+/* ===================== FUNÇÕES PURAS ===================== */
+function norm(s){if(!s)return '';return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
+
+function normEmail(v){if(v===null||v===undefined)return null;let s=String(v).trim().toLowerCase();if(['','nan','none','null','na'].includes(s))return null;if((s.match(/@/g)||[]).length>=2){for(let t of s.split(/[\s|;,/]+/)){if(t.includes('@')){s=t;break;}}}s=s.replace(/\s/g,'');return s||null;}
+function fixDomain(e){if(!e||!e.includes('@'))return e;let i=e.lastIndexOf('@');let local=e.slice(0,i),dom=e.slice(i+1);return DOMAIN_TYPOS[dom]?local+'@'+DOMAIN_TYPOS[dom]:e;}
+function validSyntax(e){return !!e&&/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);}
+function isJunk(e){if(!e||!e.includes('@'))return true;if(JUNK_EMAILS.has(e))return true;let i=e.lastIndexOf('@');let local=e.slice(0,i),dom=e.slice(i+1);let domRoot=dom.split('.')[0];if(local===domRoot)return true;if(new Set([...local]).size===1&&local.length>0)return true;let seq=['asdf','qwer','qwerty','1234','abcd','teste','test'];return seq.includes(local)||['asdf','teste','test'].includes(domRoot);}
+
+function titleCasePT(s){if(!s)return '';const prep=new Set(['de','da','do','das','dos','e','di','del','la','y']);return String(s).trim().split(/\s+/).map((w,i)=>{let lw=w.toLowerCase();if(i>0&&prep.has(lw))return lw;return lw.charAt(0).toUpperCase()+lw.slice(1);}).join(' ');}
+function ehNomePessoal(texto){
+  if(!texto||!String(texto).trim())return false;
+  let s=String(texto).trim();
+  if(EMPRESA_RE.test(s))return false;
+  let pc=norm(s).split(/\s+/).filter(Boolean);
+  if(pc.some(p=>COMPANY_WORDS.has(p)))return false;
+  let palavras=norm(s).replace(/[^a-zçãáàâéêíóôõú\s]/g,' ').split(/\s+/).filter(Boolean);
+  const prep=new Set(['de','da','do','das','dos','e']);
+  let signif=palavras.filter(p=>!prep.has(p));
+  if(!signif.length)return false;
+  if(NAO_PESSOAL.has(signif[0]))return false;
+  if(signif.every(p=>NAO_PESSOAL.has(p)))return false;
+  return true;
+}
+function removerTags(s){return s.split(/\s+/).filter(w=>!TAGS_PURAS.has(norm(w))).join(' ').replace(/^[\s\-–—|]+|[\s\-–—|]+$/g,'').trim();}
+function limparNome(nome){
+  if(!nome||!String(nome).trim())return null;
+  let s=String(nome).trim();
+  if(s.includes('/')){let partes=s.split('/').map(p=>p.trim()).filter(Boolean);let pessoas=partes.filter(p=>ehNomePessoal(p));s=pessoas.length?pessoas.sort((a,b)=>b.length-a.length)[0]:'';}
+  s=s.replace(/^[\s\-–—|]+|[\s\-–—|]+$/g,'').trim();
+  if(!s||!ehNomePessoal(s))return null;
+  s=removerTags(s);
+  if(!s||!ehNomePessoal(s))return null;
+  return s;
+}
+function splitNome(full){let limpo=limparNome(full);if(!limpo)return[null,null];let t=titleCasePT(limpo).split(/\s+/).filter(Boolean);if(!t.length)return[null,null];if(t.length===1)return[t[0],null];return[t[0],t.slice(1).join(' ')];}
+
+/* Extrai nome de e-mail. Retorna [Nome, Sobrenome, status]
+   status 'ambiguo' = não deu pra decidir (candidato a IA) */
+function quebrarGrudado(prefix){
+  let s=norm(prefix).replace(/[0-9]+/g,'');
+  if(!s)return null;
+  function busca(resto){
+    if(resto==='')return [];
+    for(let len=Math.min(12,resto.length);len>=2;len--){
+      let pedaco=resto.slice(0,len);
+      if(NOMES_COMUNS.has(pedaco)){let rec=busca(resto.slice(len));if(rec!==null)return [pedaco,...rec];}
+    }
+    return null;
+  }
+  let r=busca(s);
+  return (r&&r.length>=1&&r.length<=3)?r:null;
+}
+function extractNameFromEmail(email){
+  if(!email||!email.includes('@'))return[null,null,'sem email'];
+  let prefix=email.split('@')[0];
+  let pnorm=norm(prefix);
+  let pedacos=pnorm.split(/[._\-]+/).map(p=>p.replace(/[0-9]/g,'')).filter(Boolean);
+  if(GENERIC_PREFIXES.has(pnorm)||pedacos.some(p=>GENERIC_PREFIXES.has(p)))return[null,null,'generico'];
+  const temEmpresa=pedacos.some(p=>COMPANY_WORDS.has(p)||[...COMPANY_WORDS].some(cw=>cw.length>=4&&p.includes(cw)));
+  if(temEmpresa)return[null,null,'empresa'];
+  let tokens=prefix.split(/[._\-]+/).map(t=>t.replace(/^\d+|\d+$/g,'')).filter(t=>/^[a-zA-ZÀ-ÿ]{2,}$/.test(t));
+  if(tokens.length>=2){let[n,...r]=tokens;return[titleCasePT(n),r.length?titleCasePT(r.join(' ')):null,'separador'];}
+  if(tokens.length===1){
+    let t=tokens[0];
+    if(NOMES_COMUNS.has(norm(t)))return[titleCasePT(t),null,'nome unico'];
+    let partes=quebrarGrudado(t);
+    if(partes&&partes.length>=2)return[titleCasePT(partes[0]),titleCasePT(partes.slice(1).join(' ')),'grudado'];
+    if(partes&&partes.length===1)return[titleCasePT(partes[0]),null,'grudado'];
+    return[null,null,'ambiguo'];  // não reconheceu → branco, candidato a IA
+  }
+  return[null,null,'vazio'];
+}
+
+function limparDoc(v){if(v===null||v===undefined)return '';let s=String(v).replace(/\D/g,'');return s||'';}
+function ehColunaDoc(h){let n=norm(h);return n.includes('cpf')||n.includes('cnpj')||n.includes('documento')||n.includes('inscricao')||n==='doc';}
+function limparTelefone(v){if(v===null||v===undefined)return '';let s=String(v).trim();if(['','nan','none','null','na'].includes(s.toLowerCase()))return '';return s.replace(/\s+/g,'');}
+
+function mapCargoRH(role,areaText){
+  const r=norm(role),a=norm(areaText||''),ctx=(r+' '+a).trim();
+  if(!ctx)return 'Outros';
+  if(/\b(socio|proprietario|founder|ceo|fundador|presidente|dono|empresario|c-level)\b/.test(ctx))return 'Sócio/CEO';
+  if(/\bcoach\b/.test(ctx))return 'Coach';
+  if(/\b(contador|contabil|contabilidade)\b/.test(ctx))return 'Contador';
+  if(/\b(professor|docente)\b/.test(ctx))return 'Professor';
+  if(/\b(estudante|universitario|graduando)\b/.test(ctx))return 'Estudante';
+  if(/recoloca/.test(ctx))return 'Buscando recolocação';
+  if(/business partner|hrbp|bp de rh/.test(ctx))return 'Business Partner de RH';
+  const dp=/\bdp\b/.test(ctx)||ctx.includes('departamento pessoal');
+  if(/\b(diretor|diretora|head|vp|cho)\b/.test(r))return dp?'Diretor de DP':'Diretor de RH';
+  if(/\b(gerente|manager)\b/.test(r))return dp?'Gerente de DP':'Gerente de RH';
+  if(/\b(coordenador|coordenadora|coord)\b/.test(r))return dp?'Coordenador de DP':'Coordenador de RH';
+  if(/\b(supervisor|supervisora)\b/.test(r))return 'Supervisor de RH';
+  if(/\b(consultor|consultora)\b/.test(r))return dp?'Consultor de DP':'Consultor de RH';
+  if(/\b(estagiari|trainee|estagio)\b/.test(r))return dp?'Estagiário de DP':'Estagiário de RH';
+  if(/\b(assistente|auxiliar)\b/.test(r))return 'Assistente de RH';
+  if(/\b(analista|especialista)\b/.test(r))return dp?'Analista DP':'Analista de RH';
+  if(/\b(administrativo|financeiro|recepcionista|secretaria)\b/.test(ctx))return 'Administrativo/Financeiro';
+  return 'Outros';
+}
+function combineCargo(role,areas){
+  role=(role||'').trim();
+  const junk=new Set(['valor nao encontrado','outro','outros','nao atuo no rh','na','n/a','-','','nao se aplica','nenhum']);
+  let parts=(areas||[]).map(a=>(a||'').trim()).filter(a=>a&&!junk.has(norm(a)));
+  parts=[...new Set(parts)];
+  if(role&&parts.length)return role+' – '+parts.join(' / ');
+  if(parts.length)return parts.join(' / ');
+  return role;
+}
+function mapFaixa(v){
+  if(v===null||v===undefined||!String(v).trim())return '';
+  let s=norm(v);
+  if(/\bmei\b/.test(s)||s.includes('microempreendedor'))return 'MEI';
+  let nums=(s.match(/\d+/g)||[]).map(Number);
+  if(!nums.length)return String(v).trim();
+  let target;
+  if(nums.length>=2)target=Math.round((nums[0]+nums[1])/2);
+  else if(s.includes('+')||s.includes('mais')||s.includes('acima'))target=nums[0];
+  else target=nums[0];
+  for(let b of FAIXAS_OFICIAIS){if(target>=b.low&&target<=b.high)return b.label;}
+  return FAIXAS_OFICIAIS[FAIXAS_OFICIAIS.length-1].label;
+}
+function mapHeader(h){let n=norm(h);for(let[t,syns]of Object.entries(HUBSPOT_TARGETS)){if(n===norm(t))return t;if(syns.some(s=>n===norm(s)))return t;}for(let[t,syns]of Object.entries(HUBSPOT_TARGETS)){if(syns.some(s=>{let ns=norm(s);return ns.length>3&&n.includes(ns);}))return t;}return null;}
+function isAreaColumn(h){let n=norm(h);return n.includes('atuacao')||(n.includes('area')&&n.includes('rh'))||n.includes('qual sua area');}
+
+/* ===================== ESTADO + UI ===================== */
+const PROPS=['Nome','Sobrenome','Email','Número de Telefone','CPF/CNPJ','Nome da Empresa','Cargo','Cargo RH','Faixa de Colaboradores','Valor da Mensalidade','Cliente Sólides/Tangerino?','Observação','Outros'];
+const COMPUTED=new Set(['Nome','Sobrenome','Cargo','Cargo RH','Faixa de Colaboradores','CPF/CNPJ']);
+let rawData=[], preserveCols=[], dfDados=[], dfInvalidos=[], logText='', detectInfo='';
+let selectedProps=new Set(['Nome','Sobrenome','Email']);
+let aiCandidates=[]; // {idx, email}
+
+/* chips de propriedade */
+const propGrid=document.getElementById('prop-grid');
+function renderProps(){
+  propGrid.innerHTML=PROPS.map(p=>{
+    let on=selectedProps.has(p)?' on':'';
+    let locked=(p==='Email')?' locked':'';
+    return '<div class="chip'+on+locked+'" data-p="'+esc(p)+'" onclick="toggleProp(this)"><span class="dot"></span>'+esc(p)+'</div>';
+  }).join('');
+}
+function toggleProp(el){
+  let p=el.getAttribute('data-p');
+  if(p==='Email')return; // sempre obrigatório
+  if(selectedProps.has(p))selectedProps.delete(p);else selectedProps.add(p);
+  el.classList.toggle('on');
+  document.getElementById('outros-box').classList.toggle('hidden',!selectedProps.has('Outros'));
+}
+renderProps();
+
+const preserveTags=document.getElementById('preserve-tags');
+const preserveInput=document.getElementById('preserve-input');
+function addPreserve(){let v=preserveInput.value.trim();if(!v)return;v.split(',').forEach(c=>{c=c.trim();if(c&&!preserveCols.includes(c))preserveCols.push(c);});preserveInput.value='';renderTags();}
+function removePreserve(c){preserveCols=preserveCols.filter(x=>x!==c);renderTags();}
+function renderTags(){preserveTags.innerHTML=preserveCols.map(c=>'<span class="tag">'+esc(c)+'<button onclick="removePreserve(\''+c.replace(/'/g,"\\'")+'\')">×</button></span>').join('');}
+preserveInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addPreserve();}});
+
+const dz=document.getElementById('drop-zone'),fi=document.getElementById('file-input');
+dz.addEventListener('click',()=>fi.click());
+dz.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')fi.click();});
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dragover');if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);});
+fi.addEventListener('change',()=>{if(fi.files[0])handleFile(fi.files[0]);});
+
+function handleFile(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{rawData=parseCSV(e.target.result);}catch(err){rawData=[];alert('Erro ao ler o CSV: '+err.message);}
+    document.getElementById('file-info').innerHTML='✅ <strong>'+esc(file.name)+'</strong> — '+rawData.length+' linhas, '+(rawData.length?Object.keys(rawData[0]).length:0)+' colunas';
+    document.getElementById('file-info').classList.remove('hidden');
+    document.getElementById('btn-run').disabled=rawData.length===0;
+    autoSelectProps();
+  };
+  reader.readAsText(file,'UTF-8');
+}
+/* auto-marca propriedades detectadas nos cabeçalhos (conveniência) */
+function autoSelectProps(){
+  if(!rawData.length)return;
+  const headers=Object.keys(rawData[0]);
+  headers.forEach(h=>{let t=mapHeader(h);if(t)selectedProps.add(t);if(ehColunaDoc(h))selectedProps.add('CPF/CNPJ');});
+  // se há nome/email, garante Nome e Sobrenome marcados
+  if(selectedProps.has('Nome'))selectedProps.add('Sobrenome');
+  if(headers.some(isAreaColumn)||selectedProps.has('Cargo')){selectedProps.add('Cargo');selectedProps.add('Cargo RH');}
+  renderProps();
+  document.getElementById('outros-box').classList.toggle('hidden',!selectedProps.has('Outros'));
+}
+function parseCSV(text){
+  text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  let rows=[],cur='',row=[],inQ=false;
+  for(let i=0;i<text.length;i++){let ch=text[i];
+    if(ch==='"'){if(inQ&&text[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}
+    else if(ch===','&&!inQ){row.push(cur);cur='';}
+    else if(ch==='\n'&&!inQ){row.push(cur);rows.push(row);row=[];cur='';}
+    else cur+=ch;}
+  if(cur!==''||row.length){row.push(cur);rows.push(row);}
+  rows=rows.filter(r=>r.some(c=>c.trim()!==''));
+  if(!rows.length)return[];
+  let headers=rows[0].map(h=>h.trim());
+  return rows.slice(1).map(r=>{let o={};headers.forEach((h,i)=>o[h]=(r[i]||'').trim());return o;});
+}
+function setProgress(p){document.getElementById('progress-bar').classList.remove('hidden');document.getElementById('progress-fill').style.width=p+'%';}
+
+/* ===================== PIPELINE ===================== */
+function runPipeline(){
+  setProgress(15);document.getElementById('btn-run').disabled=true;
+  setTimeout(()=>{
+    const headers=Object.keys(rawData[0]||{});
+    const headerMap={};
+    headers.forEach(h=>{if(preserveCols.includes(h))return;let t=mapHeader(h);if(t&&!Object.values(headerMap).includes(t))headerMap[h]=t;});
+
+    let emailKey=Object.keys(headerMap).find(k=>headerMap[k]==='Email')||headers.find(h=>norm(h).includes('mail'));
+    let roleKey=Object.keys(headerMap).find(k=>headerMap[k]==='Cargo');
+    let nomeKey=Object.keys(headerMap).find(k=>headerMap[k]==='Nome');
+    let faixaKey=Object.keys(headerMap).find(k=>headerMap[k]==='Faixa de Colaboradores');
+    let docKey=headers.find(h=>!preserveCols.includes(h)&&ehColunaDoc(h));
+    let areaCols=headers.filter(h=>h!==roleKey&&!preserveCols.includes(h)&&isAreaColumn(h));
+    const outrosText=document.getElementById('outros-text').value.trim();
+
+    detectInfo='<strong>Propriedades selecionadas:</strong> '+[...selectedProps].map(esc).join(', ')+
+      '<br><strong>Detectado:</strong> e-mail → <strong>'+esc(emailKey||'(nenhuma!)')+'</strong>'+
+      (nomeKey?' · nome → <strong>'+esc(nomeKey)+'</strong>':'')+
+      (roleKey?' · cargo → <strong>'+esc(roleKey)+'</strong>':'')+
+      (areaCols.length?' · áreas → <strong>'+areaCols.map(esc).join(', ')+'</strong>':'')+
+      (faixaKey?' · faixa → <strong>'+esc(faixaKey)+'</strong>':'')+
+      (docKey?' · CPF/CNPJ → <strong>'+esc(docKey)+'</strong>':'');
+    setProgress(40);
+
+    let corrections=[],invalidos=[],valid=[];
+    rawData.forEach(row=>{
+      let email=normEmail(emailKey?row[emailKey]:'');
+      if(email){let f=fixDomain(email);if(f!==email){corrections.push({antes:email,depois:f});email=f;}}
+      let mapped={};
+      headers.forEach(h=>{if(headerMap[h])mapped[headerMap[h]]=row[h];else if(preserveCols.includes(h))mapped[h]=row[h];});
+      mapped['Email']=email||'';
+
+      if(selectedProps.has('Cargo')||selectedProps.has('Cargo RH')){
+        let role=roleKey?row[roleKey]:'';
+        let areas=areaCols.map(c=>row[c]);
+        let cargoUnificado=combineCargo(role,areas);
+        if(cargoUnificado)mapped['Cargo']=cargoUnificado;
+        mapped['Cargo RH']=mapCargoRH(role,areas.join(' '));
+      }
+      if(selectedProps.has('Faixa de Colaboradores')&&mapped['Faixa de Colaboradores'])mapped['Faixa de Colaboradores']=mapFaixa(mapped['Faixa de Colaboradores']);
+      if(selectedProps.has('CPF/CNPJ')&&docKey)mapped['CPF/CNPJ']=limparDoc(row[docKey]);
+      if(selectedProps.has('Número de Telefone')&&mapped['Número de Telefone'])mapped['Número de Telefone']=limparTelefone(mapped['Número de Telefone']);
+      if(selectedProps.has('Outros')&&outrosText)mapped['Outros']=outrosText;
+
+      let motivo=!email?'E-mail ausente':(!validSyntax(email)?'Sintaxe inválida':(isJunk(email)?'E-mail de lixo/descartável':''));
+      if(motivo){mapped._motivo=motivo;invalidos.push(mapped);}else valid.push(mapped);
+    });
+    setProgress(65);
+
+    let seen=new Map();
+    valid.forEach(r=>{let e=r['Email'];let comp=Object.values(r).filter(v=>v&&String(v).trim()).length;if(!seen.has(e)||comp>seen.get(e).comp)seen.set(e,{row:r,comp});});
+    let dupes=valid.length-seen.size;
+    setProgress(80);
+
+    let nomesSeparados=0,enriched=0,nomesZerados=0,dados=[];
+    aiCandidates=[];
+    let idx=0;
+    seen.forEach(({row})=>{
+      let temNome=row['Nome']&&String(row['Nome']).trim();
+      let temSob=row['Sobrenome']&&String(row['Sobrenome']).trim();
+      let nomeFonte = (temNome&&temSob)?(String(row['Nome']).trim()+' '+String(row['Sobrenome']).trim()):(temNome?String(row['Nome']).trim():'');
+      if(nomeFonte){
+        let[n,s]=splitNome(nomeFonte);
+        if(n){row['Nome']=n;row['Sobrenome']=s||'';if(s)nomesSeparados++;}
+        else{row['Nome']='';row['Sobrenome']='';nomesZerados++;}
+      }else{
+        let[n,s,status]=extractNameFromEmail(row['Email']);
+        if(n){row['Nome']=n;row['Sobrenome']=s||'';enriched++;}
+        else{row['Nome']='';row['Sobrenome']='';if(status==='ambiguo')aiCandidates.push({idx,email:row['Email']});}
+      }
+      dados.push(row);idx++;
+    });
+
+    // Ordem final = propriedades selecionadas (na ordem do PROPS) + preservadas
+    const order=[...PROPS.filter(p=>selectedProps.has(p)),...preserveCols];
+    dados=dados.map(r=>{let o={};order.forEach(c=>o[c]=r[c]??'');return o;});
+
+    dfDados=dados;dfInvalidos=invalidos;
+    const now=new Date();
+    logText='RELATÓRIO DE HIGIENIZAÇÃO — HubSpot Lead Cleaner v4\n'+
+      'Gerado em: '+now.toLocaleString('pt-BR')+'\n'+'='.repeat(60)+'\n'+
+      'Propriedades exportadas: '+order.join(', ')+'\n'+'='.repeat(60)+'\n'+
+      'Linhas recebidas na entrada........: '+rawData.length+'\n'+
+      'E-mails inválidos/ausentes.........: '+invalidos.length+'\n'+
+      'Duplicatas removidas...............: '+dupes+'\n'+
+      'Domínios corrigidos automaticamente: '+corrections.length+'\n'+
+      'Nomes separados (Nome+Sobrenome)...: '+nomesSeparados+'\n'+
+      'Nomes não-pessoais zerados.........: '+nomesZerados+'\n'+
+      'Nomes extraídos do e-mail..........: '+enriched+'\n'+
+      'Nomes ambíguos (candidatos a IA)...: '+aiCandidates.length+'\n'+
+      'Linhas na planilha final...........: '+dados.length+'\n'+'='.repeat(60)+
+      (corrections.length?'\n\nDomínios corrigidos:\n'+corrections.slice(0,30).map(c=>'  '+c.antes+' -> '+c.depois).join('\n'):'');
+
+    setProgress(95);
+    renderResults(dupes,corrections,nomesSeparados,nomesZerados,enriched);
+    setProgress(100);
+    setTimeout(()=>document.getElementById('progress-bar').classList.add('hidden'),400);
+    document.getElementById('btn-run').disabled=false;
+  },100);
+}
+
+function renderResults(dupes,corrections,nomesSeparados,nomesZerados,enriched){
+  document.getElementById('results').classList.remove('hidden');
+  document.getElementById('detect-box').innerHTML=detectInfo;
+  // Caixa de IA: só aparece se houver candidatos ambíguos e a prop Nome estiver selecionada
+  const aiBox=document.getElementById('ai-box');
+  if(aiCandidates.length&&selectedProps.has('Nome')){
+    aiBox.classList.remove('hidden');
+    document.getElementById('ai-count').textContent='('+aiCandidates.length+' e-mails)';
+    document.getElementById('ai-status').classList.add('hidden');
+  }else aiBox.classList.add('hidden');
+
+  document.getElementById('stats-grid').innerHTML=
+    '<div class="stat"><div class="stat-label">Entrada</div><div class="stat-value">'+rawData.length+'</div></div>'+
+    '<div class="stat"><div class="stat-label">Resultado final</div><div class="stat-value green">'+dfDados.length+'</div></div>'+
+    '<div class="stat"><div class="stat-label">Inválidos</div><div class="stat-value red">'+dfInvalidos.length+'</div></div>'+
+    '<div class="stat"><div class="stat-label">Duplicatas</div><div class="stat-value amber">'+dupes+'</div></div>'+
+    '<div class="stat"><div class="stat-label">Nomes separados</div><div class="stat-value">'+nomesSeparados+'</div></div>'+
+    '<div class="stat"><div class="stat-label">Nomes do e-mail</div><div class="stat-value">'+enriched+'</div></div>'+
+    '<div class="stat"><div class="stat-label">Nomes zerados</div><div class="stat-value">'+nomesZerados+'</div></div>';
+  document.getElementById('corrections').innerHTML=corrections.length?'⚡ Domínios auto-corrigidos: '+corrections.slice(0,5).map(c=>'<code>'+esc(c.antes)+' → '+esc(c.depois)+'</code>').join(' ')+(corrections.length>5?' e mais '+(corrections.length-5)+'...':''):'';
+  renderTable('table-dados',dfDados);renderTable('table-invalidos',dfInvalidos);
+  document.getElementById('log-content').textContent=logText;
+  document.getElementById('results').scrollIntoView({behavior:'smooth'});
+}
+function renderTable(id,data){
+  if(!data.length){document.getElementById(id).innerHTML='<p style="padding:1rem;font-size:13px;color:var(--text-2)">Nenhum registro.</p>';return;}
+  let cols=Object.keys(data[0]);
+  let html='<table><thead><tr>'+cols.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>';
+  data.slice(0,200).forEach(r=>{html+='<tr>'+cols.map(c=>'<td title="'+esc(r[c]||'')+'">'+esc(r[c]||'')+'</td>').join('')+'</tr>';});
+  if(data.length>200)html+='<tr><td colspan="'+cols.length+'" style="text-align:center;color:var(--text-3);padding:.7rem">... e mais '+(data.length-200)+' linhas (incluídas no CSV baixado)</td></tr>';
+  html+='</tbody></table>';document.getElementById(id).innerHTML=html;
+}
+function showTab(name){['dados','invalidos','log'].forEach(t=>{document.getElementById('pane-'+t).classList.toggle('hidden',t!==name);document.getElementById('tab-'+t).classList.toggle('active',t===name);});}
+function downloadCSV(type){
+  let data=type==='dados'?dfDados:dfInvalidos;if(!data.length)return;
+  let cols=Object.keys(data[0]);
+  let csv=cols.map(esc2).join(',')+'\n'+data.map(r=>cols.map(c=>esc2(String(r[c]??''))).join(',')).join('\n');
+  let blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  let a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='hubspot_'+type+'_limpo_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+}
+function esc2(v){v=String(v);return v.includes(',')||v.includes('"')||v.includes('\n')?'"'+v.replace(/"/g,'""')+'"':v;}
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+/* ===================== AGENTE DE IA (opcional) ===================== */
+async function refinarComIA(){
+  const key=document.getElementById('ai-key').value.trim();
+  const status=document.getElementById('ai-status');
+  status.classList.remove('hidden');
+  if(!key.startsWith('sk-ant-')){status.innerHTML='⚠️ Chave inválida. Ela deve começar com "sk-ant-".';return;}
+  if(!aiCandidates.length){status.innerHTML='Nada a refinar.';return;}
+  document.getElementById('ai-run').disabled=true;
+
+  const lote=40;
+  let total=aiCandidates.length, feitos=0, preenchidos=0;
+  for(let i=0;i<aiCandidates.length;i+=lote){
+    const batch=aiCandidates.slice(i,i+lote);
+    status.innerHTML='🤖 Processando '+(i+1)+'–'+Math.min(i+lote,total)+' de '+total+'...';
+    try{
+      const res=await chamarIA(key,batch.map(c=>c.email));
+      batch.forEach(c=>{
+        const r=res[c.email];
+        if(r&&r.nome){dfDados[c.idx]['Nome']=r.nome;dfDados[c.idx]['Sobrenome']=r.sobrenome||'';preenchidos++;}
+      });
+    }catch(err){status.innerHTML='❌ Erro: '+esc(err.message)+' (verifique a chave/limite da API)';document.getElementById('ai-run').disabled=false;return;}
+    feitos+=batch.length;
+  }
+  renderTable('table-dados',dfDados);
+  status.innerHTML='✅ Concluído! A IA preencheu '+preenchidos+' de '+total+' nomes. Confira na tabela e baixe o CSV.';
+  document.getElementById('ai-run').disabled=false;
+}
+
+async function chamarIA(apiKey,emails){
+  const prompt='Você recebe uma lista de e-mails. Para cada um, extraia APENAS nome de PESSOA física a partir do prefixo (antes do @). '+
+    'Regras: (1) Se for caixa institucional/genérica (contato, vendas, rh, financeiro...), empresa, marca ou não der para identificar uma pessoa real, retorne nome e sobrenome vazios. '+
+    '(2) Separe o primeiro nome em "nome" e o restante em "sobrenome". (3) Capitalize corretamente em português. '+
+    '(4) NÃO invente: na dúvida, deixe vazio.\n\n'+
+    'Responda APENAS um JSON válido, array de objetos {"email","nome","sobrenome"}, sem texto extra.\n\nE-mails:\n'+emails.join('\n');
+  const resp=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:4000,messages:[{role:'user',content:prompt}]})
+  });
+  if(!resp.ok){let t=await resp.text();throw new Error('HTTP '+resp.status+' '+t.slice(0,120));}
+  const data=await resp.json();
+  let txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
+  txt=txt.replace(/^```json\s*|\s*```$/g,'').replace(/^```\s*|\s*```$/g,'');
+  let arr=JSON.parse(txt);
+  let out={};
+  arr.forEach(o=>{if(o&&o.email)out[String(o.email).trim().toLowerCase()]={nome:(o.nome||'').trim(),sobrenome:(o.sobrenome||'').trim()};});
+  return out;
+}
+</script>
+</body>
+</html>
