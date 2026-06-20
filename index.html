@@ -73,6 +73,13 @@
   .corr{font-size:13px;color:var(--text-2);margin-bottom:.8rem}
   .corr code{background:var(--surface-2);padding:2px 7px;border-radius:5px;font-size:12px}
   .hidden{display:none}
+  .colmap-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)}
+  .colmap-row:last-child{border-bottom:none}
+  .colmap-h{flex:1;font-size:14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+  .colmap-h strong{color:var(--text);word-break:break-word}
+  .colmap-ex{font-size:11px;color:var(--text-3)}
+  .colmap-sel{flex:0 0 220px;height:38px;padding:0 10px;font-size:13px;background:var(--surface);border:1px solid var(--border-2);border-radius:8px;color:var(--text)}
+  .colmap-sel:focus{outline:none;border-color:var(--text-3)}
   .footer{text-align:center;font-size:12px;color:var(--text-3);margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border)}
 </style>
 </head>
@@ -102,6 +109,12 @@
     <div id="outros-box" class="hidden">
       <textarea id="outros-text" placeholder="Explique o que a propriedade 'Outros' deve conter. Ex: preencher todas as linhas com 'Origem: Feira RH 2026'"></textarea>
     </div>
+  </div>
+
+  <div class="card" id="colmap-card" style="display:none">
+    <h2>📝 Mais informações — revisar colunas</h2>
+    <p class="sub">Veja como cada coluna da sua planilha foi entendida. Se algum cabeçalho com nome diferente ficou errado, corrija aqui qual propriedade ele é.</p>
+    <div id="colmap-list"></div>
   </div>
 
   <div class="card">
@@ -166,10 +179,10 @@ const GENERIC_PREFIXES=new Set(['contato','vendas','comercial','rh','sac','finan
 const HUBSPOT_TARGETS={
   'Nome':['nome','first name','firstname','primeiro nome','nome do contato','contato','cliente','lead','nome completo'],
   'Sobrenome':['sobrenome','last name','lastname','ultimo nome','apelido'],
-  'Email':['email','e-mail','e mail','endereco de email','mail','correio eletronico'],
+  'Email':['email','e-mail','e mail','endereco de email','mail','correio eletronico','email principal'],
   'Número de Telefone':['telefone','numero de telefone','celular','whatsapp','whats','fone','phone','telefone fixo'],
-  'CPF/CNPJ':['cpf','cnpj','cpf/cnpj','documento','nro inscricao','inscricao'],
-  'Nome da Empresa':['empresa','nome da empresa','company','razao social','organizacao'],
+  'CPF/CNPJ':['cpf','cnpj','cpf/cnpj','documento','nro inscricao','numero inscricao','inscricao','nro inscriçao'],
+  'Nome da Empresa':['nome da empresa','empresa','company','razao social','organizacao','grupo economico','nome grupo economico','grupo','nome empresa','empresa cliente'],
   'Cargo':['cargo','funcao','job title','posicao','role','nivel','nivel hierarquico'],
   'Cargo RH':['cargo rh','cargo de rh'],
   'Faixa de Colaboradores':['faixa de colaboradores','colaboradores','numero de funcionarios','company size','employees','porte da empresa','tamanho da empresa','qtd funcionarios','quantidade de colaboradores'],
@@ -311,7 +324,31 @@ function mapFaixa(v){
   for(let b of FAIXAS_OFICIAIS){if(target>=b.low&&target<=b.high)return b.label;}
   return FAIXAS_OFICIAIS[FAIXAS_OFICIAIS.length-1].label;
 }
-function mapHeader(h){let n=norm(h);for(let[t,syns]of Object.entries(HUBSPOT_TARGETS)){if(n===norm(t))return t;if(syns.some(s=>n===norm(s)))return t;}for(let[t,syns]of Object.entries(HUBSPOT_TARGETS)){if(syns.some(s=>{let ns=norm(s);return ns.length>3&&n.includes(ns);}))return t;}return null;}
+/* Candidatos {target,score} para um cabeçalho. Exato vence substring. */
+function headerCandidates(h){
+  let n=norm(h),cands=[];
+  for(let[t,syns]of Object.entries(HUBSPOT_TARGETS)){
+    let best=0;
+    if(n===norm(t))best=Math.max(best,1000+t.length);
+    for(let s of syns){let ns=norm(s);if(n===ns)best=Math.max(best,1000+ns.length);}
+    if(best<1000){for(let s of syns){let ns=norm(s);if(ns.length>3&&n.includes(ns))best=Math.max(best,ns.length);}}
+    if(best>0)cands.push({target:t,score:best});
+  }
+  return cands.sort((a,b)=>b.score-a.score);
+}
+/* Mapa global header->target por matching guloso. manual = overrides do usuário. */
+function buildHeaderMap(headers,manual){
+  manual=manual||{};
+  let map={},usados=new Set();
+  headers.forEach(h=>{let m=manual[h];if(m&&m!=='(auto)'){map[h]=m;if(m!=='(ignorar)'&&m!=='(preservar)')usados.add(m);}});
+  let todos=[];
+  headers.forEach(h=>{if(map[h])return;headerCandidates(h).forEach(c=>todos.push({h,target:c.target,score:c.score}));});
+  todos.sort((a,b)=>b.score-a.score);
+  todos.forEach(({h,target})=>{if(map[h]||usados.has(target))return;map[h]=target;usados.add(target);});
+  return map;
+}
+/* compat: melhor target único de um cabeçalho (usado no auto-select) */
+function mapHeader(h){let c=headerCandidates(h);return c.length?c[0].target:null;}
 function isAreaColumn(h){let n=norm(h);return n.includes('atuacao')||(n.includes('area')&&n.includes('rh'))||n.includes('qual sua area');}
 
 /* ===================== ESTADO + UI ===================== */
@@ -369,12 +406,39 @@ function handleFile(file){
 function autoSelectProps(){
   if(!rawData.length)return;
   const headers=Object.keys(rawData[0]);
-  headers.forEach(h=>{let t=mapHeader(h);if(t)selectedProps.add(t);if(ehColunaDoc(h))selectedProps.add('CPF/CNPJ');});
-  // se há nome/email, garante Nome e Sobrenome marcados
+  const auto=buildHeaderMap(headers);
+  Object.values(auto).forEach(t=>{if(PROPS.includes(t))selectedProps.add(t);});
+  headers.forEach(h=>{if(ehColunaDoc(h))selectedProps.add('CPF/CNPJ');});
   if(selectedProps.has('Nome'))selectedProps.add('Sobrenome');
   if(headers.some(isAreaColumn)||selectedProps.has('Cargo')){selectedProps.add('Cargo');selectedProps.add('Cargo RH');}
   renderProps();
   document.getElementById('outros-box').classList.toggle('hidden',!selectedProps.has('Outros'));
+  renderColMap();
+}
+/* Painel "Mais informações": lista cada cabeçalho com dropdown de propriedade */
+function renderColMap(){
+  if(!rawData.length){document.getElementById('colmap-card').style.display='none';return;}
+  const headers=Object.keys(rawData[0]);
+  const auto=buildHeaderMap(headers);
+  const opcoes=['(ignorar)','(preservar)',...PROPS];
+  const list=document.getElementById('colmap-list');
+  list.innerHTML=headers.map(h=>{
+    let sel=auto[h]||'(ignorar)';
+    let amostra=(rawData.find(r=>r[h]&&String(r[h]).trim())||{})[h]||'';
+    let optsHtml=opcoes.map(o=>'<option value="'+esc(o)+'"'+(o===sel?' selected':'')+'>'+esc(o)+'</option>').join('');
+    return '<div class="colmap-row">'+
+      '<div class="colmap-h"><strong>'+esc(h)+'</strong>'+(amostra?'<span class="colmap-ex">ex: '+esc(String(amostra).slice(0,40))+'</span>':'')+'</div>'+
+      '<select class="colmap-sel" data-h="'+esc(h)+'" onchange="onColMapChange()">'+optsHtml+'</select>'+
+      '</div>';
+  }).join('');
+  document.getElementById('colmap-card').style.display='block';
+}
+function getManualMap(){let m={};document.querySelectorAll('.colmap-sel').forEach(sel=>{m[sel.getAttribute('data-h')]=sel.value;});return m;}
+/* Ao mudar um mapeamento, marca a propriedade correspondente no seletor */
+function onColMapChange(){
+  const m=getManualMap();
+  Object.values(m).forEach(v=>{if(PROPS.includes(v)){selectedProps.add(v);if(v==='Nome')selectedProps.add('Sobrenome');}});
+  renderProps();
 }
 function parseCSV(text){
   text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
@@ -397,16 +461,25 @@ function runPipeline(){
   setProgress(15);document.getElementById('btn-run').disabled=true;
   setTimeout(()=>{
     const headers=Object.keys(rawData[0]||{});
+    const manual=getManualMap();
+    const fullMap=buildHeaderMap(headers,manual); // header -> target | (preservar) | (ignorar)
+    // Colunas a preservar = as marcadas manualmente como (preservar) + as do campo de preservar
+    const preserveFromMap=headers.filter(h=>fullMap[h]==='(preservar)');
+    const allPreserve=[...new Set([...preserveCols,...preserveFromMap])];
+    // headerMap só com targets reais (ignora (preservar)/(ignorar))
     const headerMap={};
-    headers.forEach(h=>{if(preserveCols.includes(h))return;let t=mapHeader(h);if(t&&!Object.values(headerMap).includes(t))headerMap[h]=t;});
+    headers.forEach(h=>{let t=fullMap[h];if(t&&t!=='(preservar)'&&t!=='(ignorar)'&&!allPreserve.includes(h))headerMap[h]=t;});
 
     let emailKey=Object.keys(headerMap).find(k=>headerMap[k]==='Email')||headers.find(h=>norm(h).includes('mail'));
     let roleKey=Object.keys(headerMap).find(k=>headerMap[k]==='Cargo');
     let nomeKey=Object.keys(headerMap).find(k=>headerMap[k]==='Nome');
     let faixaKey=Object.keys(headerMap).find(k=>headerMap[k]==='Faixa de Colaboradores');
-    let docKey=headers.find(h=>!preserveCols.includes(h)&&ehColunaDoc(h));
-    let areaCols=headers.filter(h=>h!==roleKey&&!preserveCols.includes(h)&&isAreaColumn(h));
+    let docKey=Object.keys(headerMap).find(k=>headerMap[k]==='CPF/CNPJ')||headers.find(h=>!allPreserve.includes(h)&&ehColunaDoc(h));
+    let areaCols=headers.filter(h=>h!==roleKey&&!allPreserve.includes(h)&&isAreaColumn(h));
     const outrosText=document.getElementById('outros-text').value.trim();
+    // toda propriedade com coluna mapeada entra na saída (mesmo sem o chip marcado)
+    Object.values(headerMap).forEach(t=>{if(PROPS.includes(t))selectedProps.add(t);});
+    if(selectedProps.has('Nome'))selectedProps.add('Sobrenome');
 
     detectInfo='<strong>Propriedades selecionadas:</strong> '+[...selectedProps].map(esc).join(', ')+
       '<br><strong>Detectado:</strong> e-mail → <strong>'+esc(emailKey||'(nenhuma!)')+'</strong>'+
@@ -422,7 +495,7 @@ function runPipeline(){
       let email=normEmail(emailKey?row[emailKey]:'');
       if(email){let f=fixDomain(email);if(f!==email){corrections.push({antes:email,depois:f});email=f;}}
       let mapped={};
-      headers.forEach(h=>{if(headerMap[h])mapped[headerMap[h]]=row[h];else if(preserveCols.includes(h))mapped[h]=row[h];});
+      headers.forEach(h=>{if(headerMap[h])mapped[headerMap[h]]=row[h];else if(allPreserve.includes(h))mapped[h]=row[h];});
       mapped['Email']=email||'';
 
       if(selectedProps.has('Cargo')||selectedProps.has('Cargo RH')){
@@ -467,7 +540,7 @@ function runPipeline(){
     });
 
     // Ordem final = propriedades selecionadas (na ordem do PROPS) + preservadas
-    const order=[...PROPS.filter(p=>selectedProps.has(p)),...preserveCols];
+    const order=[...PROPS.filter(p=>selectedProps.has(p)),...allPreserve];
     dados=dados.map(r=>{let o={};order.forEach(c=>o[c]=r[c]??'');return o;});
 
     dfDados=dados;dfInvalidos=invalidos;
