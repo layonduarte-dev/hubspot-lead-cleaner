@@ -206,8 +206,21 @@ const NOMES_COMUNS=new Set(['ana','maria','joao','jose','antonio','francisco','c
 /* ===================== FUNÇÕES PURAS ===================== */
 function norm(s){if(!s)return '';return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
 
-function normEmail(v){if(v===null||v===undefined)return null;let s=String(v).trim().toLowerCase();if(['','nan','none','null','na'].includes(s))return null;if((s.match(/@/g)||[]).length>=2){for(let t of s.split(/[\s|;,/]+/)){if(t.includes('@')){s=t;break;}}}s=s.replace(/\s/g,'');return s||null;}
-function fixDomain(e){if(!e||!e.includes('@'))return e;let i=e.lastIndexOf('@');let local=e.slice(0,i),dom=e.slice(i+1);return DOMAIN_TYPOS[dom]?local+'@'+DOMAIN_TYPOS[dom]:e;}
+function normEmail(v){if(v===null||v===undefined)return null;let s=String(v).trim().toLowerCase();if(['','nan','none','null','na'].includes(s))return null;if((s.match(/@/g)||[]).length>=2){for(let t of s.split(/[\s|;,/]+/)){if(t.includes('@')){s=t;break;}}}s=s.replace(/\s/g,'');// remove pontuação solta no final (vírgula, ponto, traço)
+s=s.replace(/[,.\-]+$/,'');return s||null;}
+function fixDomain(e){if(!e||!e.includes('@'))return e;let i=e.lastIndexOf('@');let local=e.slice(0,i),dom=e.slice(i+1);
+// 1. typos de domínio conhecidos
+if(DOMAIN_TYPOS[dom])return local+'@'+DOMAIN_TYPOS[dom];
+// 2. .combr → .com.br e variações BR
+dom=dom.replace(/\.combr$/,'.com.br').replace(/\.orgbr$/,'.org.br').replace(/\.netbr$/,'.net.br').replace(/\.govbr$/,'.gov.br').replace(/\.edubr$/,'.edu.br');
+// 3. domínio famoso sem ponto: gmailcom → gmail.com, hotmailcom → hotmail.com
+const BASES=['gmail','hotmail','outlook','yahoo','uol','bol','terra','ig','live','icloud'];
+const TLDS=['com\\.br','com','net','org','br'];
+for(let b of BASES){for(let t of TLDS){if(dom===b+t.replace('\\.','.')){dom=b+'.'+t.replace('\\.','.');break;}}}
+// 4. domínio customizado colado: empresa.combr → empresa.com.br
+if(/[a-z0-9]combr$/.test(dom)&&!dom.includes('.com.br'))dom=dom.replace(/combr$/,'.com.br');
+if(/[a-z0-9]comr$/.test(dom)&&!dom.includes('.com'))dom=dom.replace(/comr$/,'.com');
+return local+'@'+dom;}
 function validSyntax(e){return !!e&&/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);}
 function isJunk(e){if(!e||!e.includes('@'))return true;if(JUNK_EMAILS.has(e))return true;let i=e.lastIndexOf('@');let local=e.slice(0,i),dom=e.slice(i+1);let domRoot=dom.split('.')[0];if(local===domRoot)return true;if(new Set([...local]).size===1&&local.length>0)return true;let seq=['asdf','qwer','qwerty','1234','abcd','teste','test'];return seq.includes(local)||['asdf','teste','test'].includes(domRoot);}
 
