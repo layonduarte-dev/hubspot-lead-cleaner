@@ -647,31 +647,17 @@ function downloadAll(){
 function abrirGoogleSheets(){
   if(!dfDados.length)return;
   let cols=Object.keys(dfDados[0]);
-  let csv=cols.map(esc2).join(',')+'\n'+dfDados.map(r=>cols.map(c=>esc2(String(r[c]??''))).join(',')).join('\n');
-  let blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
-  let file=new File([blob],'hubspot_limpo.csv',{type:'text/csv'});
-  // Cria URL temporária e abre no Google Sheets via importação
-  let url='https://docs.google.com/spreadsheets/d/create';
-  // Alternativa: converte para data URI e abre no Sheets
-  let reader=new FileReader();
-  reader.onload=function(){
-    let base64=reader.result.split(',')[1];
-    // Google Sheets aceita importação via URL com conteúdo codificado
-    // O jeito mais confiável é baixar e abrir no Drive manualmente
-    // Mas podemos usar o truque do formulário de upload
-    let form=document.createElement('form');
-    form.method='POST';form.target='_blank';
-    form.action='https://docs.google.com/spreadsheets/d/create';
-    // Fallback: abre o Google Sheets vazio e instrui o usuário
-    window.open('https://sheets.google.com/create','_blank');
-    // Automaticamente copia o CSV para o clipboard para o usuário colar
-    navigator.clipboard.writeText(csv).then(()=>{
-      alert('✅ Google Sheets aberto!\\n\\nO CSV foi copiado para sua área de transferência.\\nNo Google Sheets, clique em A1 e cole (Ctrl+V).\\n\\nOu vá em Arquivo → Importar → Upload e selecione o CSV baixado.');
-    }).catch(()=>{
-      alert('Google Sheets aberto!\\n\\nPara importar: vá em Arquivo → Importar → Upload e selecione o CSV que você baixou.');
-    });
-  };
-  reader.readAsDataURL(blob);
+  // Google Sheets espera TSV (tab-separated) no clipboard, não CSV
+  let tsv=cols.join('\t')+'\n'+dfDados.map(r=>cols.map(c=>String(r[c]??'').replace(/[\t\n]/g,' ')).join('\t')).join('\n');
+  navigator.clipboard.writeText(tsv).then(()=>{
+    window.open('https://docs.google.com/spreadsheets/create','_blank');
+    setTimeout(()=>{alert('✅ Dados copiados!\\n\\nNo Google Sheets que abriu:\\n1. Clique na célula A1\\n2. Cole com Ctrl+V (ou Cmd+V no Mac)\\n\\nTodos os '+dfDados.length+' registros serão colados.');},500);
+  }).catch(()=>{
+    // Fallback: se clipboard falhar, baixa o CSV e instrui importar
+    downloadCSV('dados');
+    window.open('https://docs.google.com/spreadsheets/create','_blank');
+    alert('Não foi possível copiar automaticamente.\\n\\nO CSV foi baixado. No Google Sheets:\\n1. Vá em Arquivo → Importar\\n2. Aba Upload → arraste o CSV\\n3. Clique Importar dados');
+  });
 }
 function esc2(v){v=String(v);return v.includes(',')||v.includes('"')||v.includes('\n')?'"'+v.replace(/"/g,'""')+'"':v;}
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
