@@ -318,9 +318,15 @@ function mapCargoRH(role,areaText){
 function combineCargo(role,areas){
   role=(role||'').trim();
   const junk=new Set(['valor nao encontrado','outro','outros','nao atuo no rh','na','n/a','-','','nao se aplica','nenhum']);
-  let parts=(areas||[]).map(a=>(a||'').trim()).filter(a=>a&&!junk.has(norm(a)));
+  let parts=(areas||[]).map(a=>(a||'').trim()).filter(a=>{
+    if(!a||junk.has(norm(a)))return false;
+    let n=norm(a);
+    if(/\b(ano|anos|meses|mes|experiencia|tempo|mais de|menos de|entre|acima|abaixo)\b/.test(n))return false;
+    if(/^\d+/.test(n))return false;
+    return true;
+  });
   parts=[...new Set(parts)];
-  if(role&&parts.length)return role+' – '+parts.join(' / ');
+  if(role&&parts.length)return role+' de '+parts.join(' e ');
   if(parts.length)return parts.join(' / ');
   return role;
 }
