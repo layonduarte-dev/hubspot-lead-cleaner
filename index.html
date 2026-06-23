@@ -107,9 +107,6 @@
     <h2>🎯 Propriedades desta planilha</h2>
     <p class="sub">Marque as propriedades que existem/quer no resultado. O app só trata e exporta as marcadas. (E-mail é sempre obrigatório.)</p>
     <div class="prop-grid" id="prop-grid"></div>
-    <div id="observacao-box" class="hidden">
-      <textarea id="observacao-text" placeholder="Escreva o que a propriedade 'Observação' deve conter. Ex: preencher todas as linhas com 'Lead captado na Feira RH 2026'"></textarea>
-    </div>
     <div id="outros-box" class="hidden">
       <textarea id="outros-text" placeholder="Explique o que a propriedade 'Outros' deve conter. Ex: preencher todas as linhas com 'Origem: Feira RH 2026'"></textarea>
     </div>
@@ -398,7 +395,6 @@ function toggleProp(el){
   if(selectedProps.has(p))selectedProps.delete(p);else selectedProps.add(p);
   el.classList.toggle('on');
   document.getElementById('outros-box').classList.toggle('hidden',!selectedProps.has('Outros'));
-  document.getElementById('observacao-box').classList.toggle('hidden',!selectedProps.has('Observação'));
 }
 renderProps();
 
@@ -439,7 +435,6 @@ function autoSelectProps(){
   if(headers.some(isAreaColumn)||selectedProps.has('Cargo')){selectedProps.add('Cargo');selectedProps.add('Cargo RH');}
   renderProps();
   document.getElementById('outros-box').classList.toggle('hidden',!selectedProps.has('Outros'));
-  document.getElementById('observacao-box').classList.toggle('hidden',!selectedProps.has('Observação'));
   renderColMap();
 }
 /* Painel "Mais informações": lista cada cabeçalho com dropdown de propriedade */
@@ -504,7 +499,6 @@ function runPipeline(){
     let docKey=Object.keys(headerMap).find(k=>headerMap[k]==='CPF/CNPJ')||headers.find(h=>!allPreserve.includes(h)&&ehColunaDoc(h));
     let areaCols=headers.filter(h=>h!==roleKey&&!allPreserve.includes(h)&&isAreaColumn(h));
     const outrosText=document.getElementById('outros-text').value.trim();
-    const observacaoText=document.getElementById('observacao-text').value.trim();
     // toda propriedade com coluna mapeada entra na saída (mesmo sem o chip marcado)
     Object.values(headerMap).forEach(t=>{if(PROPS.includes(t))selectedProps.add(t);});
     if(selectedProps.has('Nome'))selectedProps.add('Sobrenome');
@@ -537,7 +531,20 @@ function runPipeline(){
       if(selectedProps.has('CPF/CNPJ')&&docKey)mapped['CPF/CNPJ']=limparDoc(row[docKey]);
       if(selectedProps.has('Número de Telefone')&&mapped['Número de Telefone'])mapped['Número de Telefone']=limparTelefone(mapped['Número de Telefone']);
       if(selectedProps.has('Outros')&&outrosText)mapped['Outros']=outrosText;
-      if(selectedProps.has('Observação')&&observacaoText)mapped['Observação']=observacaoText;
+      // Converte Sim/Não da propriedade Cliente Sólides/Tangerino?
+      if(selectedProps.has('Cliente Sólides/Tangerino?')&&mapped['Cliente Sólides/Tangerino?']){
+        let v=norm(mapped['Cliente Sólides/Tangerino?']);
+        if(v==='sim'||v==='s'||v==='yes'||v==='1'||v==='true')mapped['Cliente Sólides/Tangerino?']='Sou Cliente Sólides';
+        else if(v==='nao'||v==='n'||v==='no'||v==='0'||v==='false'||v==='nao')mapped['Cliente Sólides/Tangerino?']='Não sou Cliente';
+      }
+      // Filtro Check-in: se alguma coluna preservada com nome "check-in" existir e o valor for "não", descarta a linha
+      let checkinKey=allPreserve.find(h=>norm(h).includes('check')&&norm(h).includes('in'));
+      if(checkinKey){
+        let cv=norm(mapped[checkinKey]||row[checkinKey]||'');
+        if(cv==='nao'||cv==='n'||cv==='no'||cv==='false'||cv==='0'){
+          mapped._motivo='Check-in: Não';invalidos.push(mapped);return;
+        }
+      }
 
       let motivo=!email?'E-mail ausente':(!validSyntax(email)?'Sintaxe inválida':(isJunk(email)?'E-mail de lixo/descartável':''));
       if(motivo){mapped._motivo=motivo;invalidos.push(mapped);}else valid.push(mapped);
