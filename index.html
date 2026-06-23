@@ -523,9 +523,16 @@ function runPipeline(){
       if(selectedProps.has('Cargo')||selectedProps.has('Cargo RH')){
         let role=roleKey?row[roleKey]:'';
         let areas=areaCols.map(c=>row[c]);
-        let cargoUnificado=combineCargo(role,areas);
-        if(cargoUnificado)mapped['Cargo']=cargoUnificado;
-        mapped['Cargo RH']=mapCargoRH(role,areas.join(' '));
+        let temCargoRHOriginal=Object.keys(headerMap).some(k=>headerMap[k]==='Cargo RH');
+        if(roleKey){
+          // Tem coluna Cargo → faz o de/para normalmente
+          let cargoUnificado=combineCargo(role,areas);
+          if(cargoUnificado)mapped['Cargo']=cargoUnificado;
+          mapped['Cargo RH']=mapCargoRH(role,areas.join(' '));
+        } else if(temCargoRHOriginal){
+          // Só tem Cargo RH (sem Cargo) → preserva o valor original como veio
+          // mapped['Cargo RH'] já foi preenchido pelo headerMap acima, não sobrescreve
+        }
       }
       if(selectedProps.has('Faixa de Colaboradores')&&mapped['Faixa de Colaboradores'])mapped['Faixa de Colaboradores']=mapFaixa(mapped['Faixa de Colaboradores']);
       if(selectedProps.has('CPF/CNPJ')&&docKey)mapped['CPF/CNPJ']=limparDoc(row[docKey]);
