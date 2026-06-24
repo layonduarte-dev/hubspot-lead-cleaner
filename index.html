@@ -591,26 +591,35 @@ function runPipeline(){
       let temNome=row['Nome']&&String(row['Nome']).trim();
       let temSob=row['Sobrenome']&&String(row['Sobrenome']).trim();
       let nomeFonte = (temNome&&temSob)?(String(row['Nome']).trim()+' '+String(row['Sobrenome']).trim()):(temNome?String(row['Nome']).trim():'');
+      // Detecta se um nome parece suspeito e deve ir para revisão da IA
+      function nomeSuspeito(n,s,email){
+        if(!n)return false;
+        const emailPrefix=(email||'').split('@')[0].split(/[._\-]/)[0].toLowerCase();
+        const nLow=norm(n);
+        // Prefixos institucionais comuns colados no início do nome
+        const PREFIXOS_INST=/^(adm|rh|fin|mkt|ger|dir|sup|coord|ti|ceo|coo|cfo|dp|rha|rhm|adma|adms)/;
+        // Nome sem espaço com 5+ chars (possível grudado ou sigla)
+        if(!n.includes(' ')&&n.replace(/[^a-zA-Z]/g,'').length>=5)return true;
+        // Sobrenome muito curto (sigla)
+        if(s&&s.replace(/[^a-zA-Z]/g,'').length<=3)return true;
+        // Sobrenome é eco do prefixo do email
+        if(s&&norm(s)===emailPrefix)return true;
+        // Nome começa com prefixo institucional grudado
+        if(PREFIXOS_INST.test(nLow))return true;
+        return false;
+      }
       if(nomeFonte){
         let[n,s]=splitNome(nomeFonte);
         if(n){
           row['Nome']=n;row['Sobrenome']=s||'';if(s)nomesSeparados++;
-          // Candidato a IA: nome grudado (sem espaço, >8 chars) ou sobrenome suspeito (sigla ≤3 chars ou igual ao prefixo do email)
-          const nomeGrudado=n&&!n.includes(' ')&&n.length>8;
-          const emailPrefix=(row['Email']||'').split('@')[0].split(/[._\-]/)[0].toLowerCase();
-          const sobSuspeito=s&&(s.replace(/[^a-zA-Z]/g,'').length<=3||norm(s)===emailPrefix);
-          if(nomeGrudado||sobSuspeito)aiCandidates.push({idx,email:row['Email'],nomeAtual:n,sobrenomeAtual:s||''});
+          if(nomeSuspeito(n,s,row['Email']))aiCandidates.push({idx,email:row['Email'],nomeAtual:n,sobrenomeAtual:s||''});
         }
         else{row['Nome']='';row['Sobrenome']='';nomesZerados++;}
       }else{
         let[n,s,status]=extractNameFromEmail(row['Email']);
         if(n){
           row['Nome']=n;row['Sobrenome']=s||'';enriched++;
-          // Candidato a IA: nome extraído do email que parece grudado
-          const nomeGrudado=n&&!n.includes(' ')&&n.length>8;
-          const emailPrefix=(row['Email']||'').split('@')[0].split(/[._\-]/)[0].toLowerCase();
-          const sobSuspeito=s&&(s.replace(/[^a-zA-Z]/g,'').length<=3||norm(s)===emailPrefix);
-          if(nomeGrudado||sobSuspeito)aiCandidates.push({idx,email:row['Email'],nomeAtual:n,sobrenomeAtual:s||''});
+          if(nomeSuspeito(n,s,row['Email']))aiCandidates.push({idx,email:row['Email'],nomeAtual:n,sobrenomeAtual:s||''});
         }
         else{row['Nome']='';row['Sobrenome']='';if(status==='ambiguo')aiCandidates.push({idx,email:row['Email'],nomeAtual:'',sobrenomeAtual:''});}
       }
@@ -765,16 +774,42 @@ function buildPromptIA(entradas){
     if(e.nomeAtual||e.sobrenomeAtual)s+=' | nome_atual: "'+e.nomeAtual+(e.sobrenomeAtual?' '+e.sobrenomeAtual:'')+'"';
     return s;
   }).join('\n');
-  return 'Você recebe uma lista de e-mails de contatos brasileiros. Cada linha pode conter o e-mail e, opcionalmente, o nome que foi extraído automaticamente (campo nome_atual). '+
-    'Sua tarefa é retornar o nome e sobrenome CORRETOS da pessoa física.\n\n'+
-    'REGRAS:\n'+
-    '1. Use o prefixo do e-mail como fonte principal para inferir o nome real.\n'+
-    '2. Se nome_atual existir mas parecer grudado (ex: "Andreacristina", "Magnarodrigues"), separe corretamente (Andrea Cristina, Magna Rodrigues).\n'+
-    '3. Se nome_atual existir mas o sobrenome for uma sigla curta ou inválida (ex: "Ac", "Lsp", "Rh"), descarte o sobrenome e use o e-mail para inferir o correto.\n'+
-    '4. Se for caixa genérica/institucional (contato, vendas, rh, financeiro, suporte...) ou empresa/marca, retorne nome e sobrenome vazios.\n'+
-    '5. Capitalize corretamente em português (preposições como de/da/do em minúsculas).\n'+
-    '6. NÃO invente nomes: se genuinamente não der para identificar uma pessoa, deixe vazio.\n\n'+
-    'Responda APENAS um JSON válido, array de objetos {"email","nome","sobrenome"}, sem texto extra.\n\nEntradas:\n'+linhas;
+  return `Você é um especialista em higienização de dados de contatos brasileiros. Receberá uma lista onde cada linha tem um e-mail e, às vezes, um nome_atual extraído automaticamente (que pode estar errado).
+
+SUA TAREFA: Para cada entrada, decidir o nome e sobrenome CORRETOS da PESSOA FÍSICA real.
+
+REGRAS OBRIGATÓRIAS:
+
+[QUANDO DEIXAR VAZIO — nome="" e sobrenome=""]
+- O prefixo do e-mail não representa uma pessoa física real
+- Parece caixa institucional/departamento: contato, vendas, financeiro, rh, suporte, admin, info, comercial, sac, atendimento, noreply, etc.
+- Parece nome de empresa, marca, produto ou sigla sem sentido humano
+- Prefixo começa com sigla institucional colada: "adm+algo" (admartymed, admauppaa), "rh+algo" (rhsinop, rhtekmak, rhamigaopn), "fin+algo", "mkt+algo", "ger+algo"
+- Não dá para identificar com segurança uma pessoa real — DEIXE VAZIO, não invente
+
+[QUANDO CORRIGIR]
+- nome_atual está grudado: separe corretamente → "Rogeriogomes" → nome="Rogerio" sobrenome="Gomes"
+- nome_atual tem sobrenome inválido (sigla ≤3 letras como "Ac", "Lsp", "Rh"): use o e-mail para inferir o sobrenome correto ou deixe sobrenome vazio
+- nome_atual tem prefixo institucional colado antes do nome real: extraia só o nome humano
+
+[FORMATAÇÃO]
+- Capitalize corretamente em português: primeira letra maiúscula, preposições (de/da/do/dos/das/e) em minúsculas
+- Separe: primeiro token em "nome", restante em "sobrenome"
+
+EXEMPLOS DE SAÍDA ESPERADA:
+- admartymed@gmail.com | nome_atual: "Admartymed" → {"nome":"","sobrenome":""} // adm+artymed = institucional
+- artymedrenata@gmail.com | nome_atual: "Artymedrenata" → {"nome":"","sobrenome":""} // artymed = empresa/marca
+- rhsinop@medsaor.com | nome_atual: "Rhsinop" → {"nome":"","sobrenome":""} // rh+sinop = departamento RH de Sinop
+- rhamigaopn@gmail.com | nome_atual: "Rhamigaopn" → {"nome":"","sobrenome":""} // rh+amiga+opn = institucional
+- rhtekmak@gmail.com | nome_atual: "Rhtekmak" → {"nome":"","sobrenome":""} // rh+tekmak = empresa
+- rogeriogomes@empresa.com | nome_atual: "Rogeriogomes" → {"nome":"Rogerio","sobrenome":"Gomes"}
+- andreacristina_ac@hotmail.com | nome_atual: "Andreacristina Ac" → {"nome":"Andrea","sobrenome":"Cristina"}
+- rodrigo@bfmeat.com | nome_atual: "Rodrigo" → {"nome":"Rodrigo","sobrenome":""}
+
+Responda APENAS um JSON válido, array de objetos {"email","nome","sobrenome"}, sem texto extra, sem markdown.
+
+Entradas:
+`+linhas;
 }
 async function chamarIA(apiKey,entradas){
   const prompt=buildPromptIA(entradas);
