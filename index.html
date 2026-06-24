@@ -735,6 +735,7 @@ function atualizarProvedor(){
   const prov=document.getElementById('ai-provider').value;
   const inp=document.getElementById('ai-key');
   if(prov==='groq'){inp.placeholder='Cole sua API key (gsk_...)';}
+  else if(prov==='gemini'){inp.placeholder='Cole sua API key do Gemini';}
   else{inp.placeholder='Cole sua API key (sk-ant-...)';}
 }
 
@@ -745,7 +746,7 @@ async function refinarComIA(){
   status.classList.remove('hidden');
   if(prov==='anthropic'&&!key.startsWith('sk-ant-')){status.innerHTML='⚠️ Chave inválida. Chaves da Anthropic começam com "sk-ant-".';return;}
   if(prov==='groq'&&!key.startsWith('gsk_')){status.innerHTML='⚠️ Chave inválida. Chaves do Groq começam com "gsk_".';return;}
-  if(prov==='gemini'&&!key.startsWith('AIza')){status.innerHTML='⚠️ Chave inválida. Chaves do Gemini começam com "AIza".';return;}
+  if(prov==='gemini'&&key.length<10){status.innerHTML='⚠️ Chave do Gemini inválida ou muito curta.';return;}
   if(!aiCandidates.length){status.innerHTML='Nada a refinar.';return;}
   document.getElementById('ai-run').disabled=true;
 
