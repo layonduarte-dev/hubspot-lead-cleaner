@@ -138,9 +138,13 @@
 
       <div class="ai-box hidden" id="ai-box">
         <h3>🤖 Refinar nomes com IA <span id="ai-count" style="font-weight:400;color:var(--text-2)"></span></h3>
-        <p>Alguns e-mails têm nomes "grudados" que as regras não conseguem separar com segurança (ficaram em branco). A IA pode tentar extraí-los. Requer uma chave de API da Anthropic — ela fica só no seu navegador e é usada para chamar a API direto.</p>
-        <div class="ai-row">
-          <input type="text" id="ai-key" placeholder="Cole sua API key (sk-ant-...)" autocomplete="off">
+        <p>Alguns e-mails têm nomes "grudados" que as regras não conseguem separar com segurança (ficaram em branco). A IA pode tentar extraí-los. Escolha o provedor, cole sua chave de API — ela fica só no seu navegador e é usada para chamar a API direto.</p>
+        <div class="ai-row" style="flex-wrap:wrap;gap:8px">
+          <select id="ai-provider" onchange="atualizarProvedor()" style="padding:.55rem .75rem;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card);color:var(--text-1);font-size:.9rem;cursor:pointer">
+            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="groq">Groq</option>
+          </select>
+          <input type="text" id="ai-key" placeholder="Cole sua API key (sk-ant-...)" autocomplete="off" style="flex:1;min-width:200px">
           <button class="btn" id="ai-run" onclick="refinarComIA()">Refinar agora</button>
         </div>
         <div class="ai-status hidden" id="ai-status"></div>
@@ -685,11 +689,20 @@ function esc2(v){v=String(v);return v.includes(',')||v.includes('"')||v.includes
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 /* ===================== AGENTE DE IA (opcional) ===================== */
+function atualizarProvedor(){
+  const prov=document.getElementById('ai-provider').value;
+  const inp=document.getElementById('ai-key');
+  if(prov==='groq'){inp.placeholder='Cole sua API key (gsk_...)';}
+  else{inp.placeholder='Cole sua API key (sk-ant-...)';}
+}
+
 async function refinarComIA(){
   const key=document.getElementById('ai-key').value.trim();
+  const prov=document.getElementById('ai-provider').value;
   const status=document.getElementById('ai-status');
   status.classList.remove('hidden');
-  if(!key.startsWith('sk-ant-')){status.innerHTML='⚠️ Chave inválida. Ela deve começar com "sk-ant-".';return;}
+  if(prov==='anthropic'&&!key.startsWith('sk-ant-')){status.innerHTML='⚠️ Chave inválida. Chaves da Anthropic começam com "sk-ant-".';return;}
+  if(prov==='groq'&&!key.startsWith('gsk_')){status.innerHTML='⚠️ Chave inválida. Chaves do Groq começam com "gsk_".';return;}
   if(!aiCandidates.length){status.innerHTML='Nada a refinar.';return;}
   document.getElementById('ai-run').disabled=true;
 
@@ -699,7 +712,9 @@ async function refinarComIA(){
     const batch=aiCandidates.slice(i,i+lote);
     status.innerHTML='🤖 Processando '+(i+1)+'–'+Math.min(i+lote,total)+' de '+total+'...';
     try{
-      const res=await chamarIA(key,batch.map(c=>c.email));
+      const res=prov==='groq'
+        ?await chamarGroq(key,batch.map(c=>c.email))
+        :await chamarIA(key,batch.map(c=>c.email));
       batch.forEach(c=>{
         const r=res[c.email];
         if(r&&r.nome){dfDados[c.idx]['Nome']=r.nome;dfDados[c.idx]['Sobrenome']=r.sobrenome||'';preenchidos++;}
@@ -726,6 +741,27 @@ async function chamarIA(apiKey,emails){
   if(!resp.ok){let t=await resp.text();throw new Error('HTTP '+resp.status+' '+t.slice(0,120));}
   const data=await resp.json();
   let txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
+  txt=txt.replace(/^```json\s*|\s*```$/g,'').replace(/^```\s*|\s*```$/g,'');
+  let arr=JSON.parse(txt);
+  let out={};
+  arr.forEach(o=>{if(o&&o.email)out[String(o.email).trim().toLowerCase()]={nome:(o.nome||'').trim(),sobrenome:(o.sobrenome||'').trim()};});
+  return out;
+}
+
+async function chamarGroq(apiKey,emails){
+  const prompt='Você recebe uma lista de e-mails. Para cada um, extraia APENAS nome de PESSOA física a partir do prefixo (antes do @). '+
+    'Regras: (1) Se for caixa institucional/genérica (contato, vendas, rh, financeiro...), empresa, marca ou não der para identificar uma pessoa real, retorne nome e sobrenome vazios. '+
+    '(2) Separe o primeiro nome em "nome" e o restante em "sobrenome". (3) Capitalize corretamente em português. '+
+    '(4) NÃO invente: na dúvida, deixe vazio.\n\n'+
+    'Responda APENAS um JSON válido, array de objetos {"email","nome","sobrenome"}, sem texto extra.\n\nE-mails:\n'+emails.join('\n');
+  const resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+    body:JSON.stringify({model:'llama-3.1-8b-instant',max_tokens:4000,messages:[{role:'user',content:prompt}]})
+  });
+  if(!resp.ok){let t=await resp.text();throw new Error('HTTP '+resp.status+' '+t.slice(0,120));}
+  const data=await resp.json();
+  let txt=((data.choices||[])[0]?.message?.content||'').trim();
   txt=txt.replace(/^```json\s*|\s*```$/g,'').replace(/^```\s*|\s*```$/g,'');
   let arr=JSON.parse(txt);
   let out={};
