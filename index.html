@@ -300,6 +300,16 @@ function extractNameFromEmail(email){
 function limparDoc(v){if(v===null||v===undefined)return '';let s=String(v).replace(/\D/g,'');return s||'';}
 function ehColunaDoc(h){let n=norm(h);return n.includes('cpf')||n.includes('cnpj')||n.includes('documento')||n.includes('inscricao')||n==='doc';}
 function limparTelefone(v){if(v===null||v===undefined)return '';let s=String(v).trim();if(['','nan','none','null','na'].includes(s.toLowerCase()))return '';return s.replace(/\s+/g,'');}
+function limparMensalidade(v){
+  if(v===null||v===undefined)return '';
+  let s=String(v).trim();
+  if(['','nan','none','null','na'].includes(s.toLowerCase()))return '';
+  // Remove R$, espaços, pontos de milhar; troca vírgula decimal por ponto
+  s=s.replace(/R\$\s*/gi,'').trim();
+  s=s.replace(/\./g,'').replace(',','.');
+  // Se sobrou algo que parece número, retorna; senão devolve o original sem R$
+  return isNaN(parseFloat(s))?s.replace(/R\$\s*/gi,'').trim():s;
+}
 
 function mapCargoRH(role,areaText){
   const r=norm(role),a=norm(areaText||''),ctx=(r+' '+a).trim();
@@ -559,6 +569,7 @@ function runPipeline(){
       if(selectedProps.has('Faixa de Colaboradores')&&mapped['Faixa de Colaboradores'])mapped['Faixa de Colaboradores']=mapFaixa(mapped['Faixa de Colaboradores']);
       if(selectedProps.has('CPF/CNPJ')&&docKey)mapped['CPF/CNPJ']=limparDoc(row[docKey]);
       if(selectedProps.has('Número de Telefone')&&mapped['Número de Telefone'])mapped['Número de Telefone']=limparTelefone(mapped['Número de Telefone']);
+      if(selectedProps.has('Valor da Mensalidade')&&mapped['Valor da Mensalidade'])mapped['Valor da Mensalidade']=limparMensalidade(mapped['Valor da Mensalidade']);
       if(selectedProps.has('Outros')&&outrosText)mapped['Outros']=outrosText;
       // Converte Sim/Não da propriedade Cliente Sólides/Tangerino?
       if(selectedProps.has('Cliente Sólides/Tangerino?')&&mapped['Cliente Sólides/Tangerino?']){
