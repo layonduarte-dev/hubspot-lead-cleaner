@@ -754,19 +754,34 @@ async function chamarGroq(apiKey,emails){
     '(2) Separe o primeiro nome em "nome" e o restante em "sobrenome". (3) Capitalize corretamente em português. '+
     '(4) NÃO invente: na dúvida, deixe vazio.\n\n'+
     'Responda APENAS um JSON válido, array de objetos {"email","nome","sobrenome"}, sem texto extra.\n\nE-mails:\n'+emails.join('\n');
-  const resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
-    body:JSON.stringify({model:'llama-3.1-8b-instant',max_tokens:4000,messages:[{role:'user',content:prompt}]})
-  });
-  if(!resp.ok){let t=await resp.text();throw new Error('HTTP '+resp.status+' '+t.slice(0,120));}
-  const data=await resp.json();
-  let txt=((data.choices||[])[0]?.message?.content||'').trim();
-  txt=txt.replace(/^```json\s*|\s*```$/g,'').replace(/^```\s*|\s*```$/g,'');
-  let arr=JSON.parse(txt);
-  let out={};
-  arr.forEach(o=>{if(o&&o.email)out[String(o.email).trim().toLowerCase()]={nome:(o.nome||'').trim(),sobrenome:(o.sobrenome||'').trim()};});
-  return out;
+  const GROQ_MODELS=['llama-3.3-70b-versatile','llama3-70b-8192','llama-3.1-8b-instant'];
+  let lastErr=null;
+  for(const model of GROQ_MODELS){
+    for(let tentativa=0;tentativa<3;tentativa++){
+      const resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+        body:JSON.stringify({model,max_tokens:4000,messages:[{role:'user',content:prompt}]})
+      });
+      if(resp.status===429){
+        const retryAfter=parseInt(resp.headers.get('retry-after')||'10',10);
+        const espera=Math.min((retryAfter||10)+2,30)*1000;
+        document.getElementById('ai-status').innerHTML='⏳ Rate limit atingido ('+model+'), aguardando '+Math.round(espera/1000)+'s...';
+        await new Promise(r=>setTimeout(r,espera));
+        lastErr=new Error('Rate limit ('+model+')');
+        continue;
+      }
+      if(!resp.ok){let t=await resp.text();lastErr=new Error('HTTP '+resp.status+' '+t.slice(0,120));break;}
+      const data=await resp.json();
+      let txt=((data.choices||[])[0]?.message?.content||'').trim();
+      txt=txt.replace(/^```json\s*|\s*```$/g,'').replace(/^```\s*|\s*```$/g,'');
+      let arr=JSON.parse(txt);
+      let out={};
+      arr.forEach(o=>{if(o&&o.email)out[String(o.email).trim().toLowerCase()]={nome:(o.nome||'').trim(),sobrenome:(o.sobrenome||'').trim()};});
+      return out;
+    }
+  }
+  throw lastErr||new Error('Todos os modelos Groq falharam. Tente novamente em alguns instantes.');
 }
 </script>
 </body>
