@@ -876,10 +876,6 @@ async function chamarGroq(apiKey,entradas){
 
 async function chamarGemini(apiKey,entradas){
   const prompt=buildPromptIA(entradas);
-  // Chaves AQ. (novo Google AI Studio) usam Bearer no header
-  // Chaves AIza. (legado) usam ?key= na URL
-  // Tentamos as duas formas para cada modelo
-  const isBearer=!apiKey.startsWith('AIza');
   const GEMINI_MODELS=[
     'gemini-2.0-flash-001',
     'gemini-2.0-flash',
@@ -887,63 +883,53 @@ async function chamarGemini(apiKey,entradas){
     'gemini-1.5-flash-002',
     'gemini-1.5-flash-001',
     'gemini-1.5-flash',
-    'gemini-1.5-pro',
-    'gemini-1.0-pro'
+    'gemini-1.5-pro'
   ];
   const body=JSON.stringify({
     contents:[{parts:[{text:prompt}]}],
     generationConfig:{temperature:0.1,maxOutputTokens:4000}
   });
-  function makeHeaders(){
-    const h={'Content-Type':'application/json'};
-    if(isBearer)h['Authorization']='Bearer '+apiKey;
-    return h;
-  }
-  function makeUrl(model){
-    const base='https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent';
-    return isBearer?base:base+'?key='+apiKey;
-  }
+  // Tenta 3 estratégias de autenticação em ordem para suportar AIza. e AQ.
+  const authStrategies=[
+    (url,h)=>{h['x-goog-api-key']=apiKey;return url;},     // x-goog-api-key header (mais universal)
+    (url,h)=>{return url+'?key='+apiKey;},                  // ?key= na URL (legado)
+    (url,h)=>{h['Authorization']='Bearer '+apiKey;return url;} // Bearer OAuth
+  ];
+  const BASE='https://generativelanguage.googleapis.com/v1beta/models/';
   let lastErr=null;
   for(const model of GEMINI_MODELS){
-    for(let tentativa=0;tentativa<3;tentativa++){
-      let resp;
-      try{
-        resp=await fetch(makeUrl(model),{method:'POST',headers:makeHeaders(),body});
-      }catch(fetchErr){lastErr=new Error('Erro de rede: '+fetchErr.message);break;}
-      if(resp.status===404||resp.status===400){
-        lastErr=new Error('Modelo não disponível: '+model);
-        break;
+    for(const applyAuth of authStrategies){
+      for(let tentativa=0;tentativa<2;tentativa++){
+        const h={'Content-Type':'application/json'};
+        const url=applyAuth(BASE+model+':generateContent',h);
+        let resp;
+        try{resp=await fetch(url,{method:'POST',headers:h,body});}
+        catch(e){lastErr=new Error('Rede: '+e.message);break;}
+        if(resp.status===404){lastErr=new Error('Modelo indisponível: '+model);break;}
+        if(resp.status===400||resp.status===401||resp.status===403){
+          lastErr=new Error('Auth/modelo ('+resp.status+') — tentando próxima estratégia');break;
+        }
+        if(resp.status===429){
+          const wait=Math.min((parseInt(resp.headers.get('retry-after')||'15')+2),30)*1000;
+          document.getElementById('ai-status').innerHTML='⏳ Rate limit ('+model+'), aguardando '+Math.round(wait/1000)+'s...';
+          await new Promise(r=>setTimeout(r,wait));
+          lastErr=new Error('Rate limit ('+model+')');continue;
+        }
+        if(!resp.ok){let t=await resp.text();lastErr=new Error('HTTP '+resp.status+' ('+model+'): '+t.slice(0,200));break;}
+        const data=await resp.json();
+        const candidate=(data.candidates||[])[0];
+        if(!candidate){lastErr=new Error('Resposta vazia ('+model+')');break;}
+        let txt=(candidate?.content?.parts?.[0]?.text||'').trim();
+        txt=txt.replace(/^```json\s*|\s*```$/g,'').replace(/^```\s*|\s*```$/g,'');
+        let arr;
+        try{arr=JSON.parse(txt);}catch(e){lastErr=new Error('JSON inválido: '+txt.slice(0,100));break;}
+        const out={};
+        arr.forEach(o=>{if(o&&o.email)out[String(o.email).trim().toLowerCase()]={nome:(o.nome||'').trim(),sobrenome:(o.sobrenome||'').trim()};});
+        return out;
       }
-      if(resp.status===401||resp.status===403){
-        let t=await resp.text();
-        throw new Error('Chave inválida ou sem permissão ('+resp.status+'): '+t.slice(0,200));
-      }
-      if(resp.status===429){
-        const retryAfter=parseInt(resp.headers.get('retry-after')||'15',10);
-        const espera=Math.min((retryAfter||15)+2,30)*1000;
-        document.getElementById('ai-status').innerHTML='⏳ Rate limit ('+model+'), aguardando '+Math.round(espera/1000)+'s...';
-        await new Promise(r=>setTimeout(r,espera));
-        lastErr=new Error('Rate limit ('+model+')');
-        continue;
-      }
-      if(!resp.ok){
-        let t=await resp.text();
-        lastErr=new Error('HTTP '+resp.status+' ('+model+'): '+t.slice(0,200));
-        break;
-      }
-      const data=await resp.json();
-      const candidate=(data.candidates||[])[0];
-      if(!candidate){lastErr=new Error('Resposta vazia do Gemini ('+model+')');break;}
-      let txt=(candidate?.content?.parts?.[0]?.text||'').trim();
-      txt=txt.replace(/^```json\s*|\s*```$/g,'').replace(/^```\s*|\s*```$/g,'');
-      let arr;
-      try{arr=JSON.parse(txt);}catch(e){lastErr=new Error('JSON inválido do Gemini: '+txt.slice(0,100));break;}
-      let out={};
-      arr.forEach(o=>{if(o&&o.email)out[String(o.email).trim().toLowerCase()]={nome:(o.nome||'').trim(),sobrenome:(o.sobrenome||'').trim()};});
-      return out;
     }
   }
-  throw lastErr||new Error('Nenhum modelo Gemini funcionou. Verifique sua chave em aistudio.google.com/apikey');
+  throw lastErr||new Error('Nenhum modelo/autenticação Gemini funcionou. Verifique sua chave em aistudio.google.com/apikey');
 }
 </script>
 </body>
