@@ -516,8 +516,25 @@ function runPipeline(){
       (docKey?' · CPF/CNPJ → <strong>'+esc(docKey)+'</strong>':'');
     setProgress(40);
 
+    // ── Expansão de múltiplos e-mails ──────────────────────────────────────────
+    // Se uma célula tiver mais de um e-mail (sep. por ; , | ou espaço), cria
+    // uma linha por e-mail copiando todos os outros campos da linha original.
+    function expandirEmails(rows,emailCol){
+      if(!emailCol)return rows;
+      const out=[];
+      rows.forEach(row=>{
+        const raw=String(row[emailCol]||'').trim();
+        const tokens=raw.split(/[;,|\s]+/).map(t=>t.trim()).filter(t=>t.includes('@'));
+        if(tokens.length<=1){out.push(row);return;}
+        tokens.forEach(tok=>{const clone={...row};clone[emailCol]=tok;out.push(clone);});
+      });
+      return out;
+    }
+    const rawDataExp=expandirEmails(rawData,emailKey);
+    let emailsExpandidos=rawDataExp.length-rawData.length;
+
     let corrections=[],invalidos=[],valid=[];
-    rawData.forEach(row=>{
+    rawDataExp.forEach(row=>{
       let email=normEmail(emailKey?row[emailKey]:'');
       if(email){let f=fixDomain(email);if(f!==email){corrections.push({antes:email,depois:f});email=f;}}
       let mapped={};
@@ -595,7 +612,7 @@ function runPipeline(){
     logText='RELATÓRIO DE HIGIENIZAÇÃO — HubSpot Lead Cleaner v4\n'+
       'Gerado em: '+now.toLocaleString('pt-BR')+'\n'+'='.repeat(60)+'\n'+
       'Propriedades exportadas: '+order.join(', ')+'\n'+'='.repeat(60)+'\n'+
-      'Linhas recebidas na entrada........: '+rawData.length+'\n'+
+      'Linhas recebidas na entrada........: '+rawData.length+(emailsExpandidos?'  (+ '+emailsExpandidos+' linhas geradas por múltiplos e-mails)':'')+'\n'+
       'E-mails inválidos/ausentes.........: '+invalidos.length+'\n'+
       'Duplicatas removidas...............: '+dupes+'\n'+
       'Domínios corrigidos automaticamente: '+corrections.length+'\n'+
@@ -607,14 +624,14 @@ function runPipeline(){
       (corrections.length?'\n\nDomínios corrigidos:\n'+corrections.slice(0,30).map(c=>'  '+c.antes+' -> '+c.depois).join('\n'):'');
 
     setProgress(95);
-    renderResults(dupes,corrections,nomesSeparados,nomesZerados,enriched);
+    renderResults(dupes,corrections,nomesSeparados,nomesZerados,enriched,emailsExpandidos);
     setProgress(100);
     setTimeout(()=>document.getElementById('progress-bar').classList.add('hidden'),400);
     document.getElementById('btn-run').disabled=false;
   },100);
 }
 
-function renderResults(dupes,corrections,nomesSeparados,nomesZerados,enriched){
+function renderResults(dupes,corrections,nomesSeparados,nomesZerados,enriched,emailsExpandidos){
   document.getElementById('results').classList.remove('hidden');
   document.getElementById('detect-box').innerHTML=detectInfo;
   // Caixa de IA: só aparece se houver candidatos ambíguos e a prop Nome estiver selecionada
@@ -630,6 +647,7 @@ function renderResults(dupes,corrections,nomesSeparados,nomesZerados,enriched){
     '<div class="stat"><div class="stat-label">Resultado final</div><div class="stat-value green">'+dfDados.length+'</div></div>'+
     '<div class="stat"><div class="stat-label">Inválidos</div><div class="stat-value red">'+dfInvalidos.length+'</div></div>'+
     '<div class="stat"><div class="stat-label">Duplicatas</div><div class="stat-value amber">'+dupes+'</div></div>'+
+    (emailsExpandidos?'<div class="stat"><div class="stat-label">E-mails expandidos</div><div class="stat-value">'+emailsExpandidos+'</div></div>':'')+
     '<div class="stat"><div class="stat-label">Nomes separados</div><div class="stat-value">'+nomesSeparados+'</div></div>'+
     '<div class="stat"><div class="stat-label">Nomes do e-mail</div><div class="stat-value">'+enriched+'</div></div>'+
     '<div class="stat"><div class="stat-label">Nomes zerados</div><div class="stat-value">'+nomesZerados+'</div></div>';
