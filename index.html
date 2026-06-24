@@ -143,6 +143,7 @@
           <select id="ai-provider" onchange="atualizarProvedor()" style="padding:.55rem .75rem;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card);color:var(--text-1);font-size:.9rem;cursor:pointer">
             <option value="anthropic">Anthropic (Claude)</option>
             <option value="groq">Groq</option>
+            <option value="gemini">Google Gemini</option>
           </select>
           <input type="text" id="ai-key" placeholder="Cole sua API key (sk-ant-...)" autocomplete="off" style="flex:1;min-width:200px">
           <button class="btn" id="ai-run" onclick="refinarComIA()">Refinar agora</button>
@@ -744,6 +745,7 @@ async function refinarComIA(){
   status.classList.remove('hidden');
   if(prov==='anthropic'&&!key.startsWith('sk-ant-')){status.innerHTML='⚠️ Chave inválida. Chaves da Anthropic começam com "sk-ant-".';return;}
   if(prov==='groq'&&!key.startsWith('gsk_')){status.innerHTML='⚠️ Chave inválida. Chaves do Groq começam com "gsk_".';return;}
+  if(prov==='gemini'&&!key.startsWith('AIza')){status.innerHTML='⚠️ Chave inválida. Chaves do Gemini começam com "AIza".';return;}
   if(!aiCandidates.length){status.innerHTML='Nada a refinar.';return;}
   document.getElementById('ai-run').disabled=true;
 
@@ -756,7 +758,7 @@ async function refinarComIA(){
       const entradas=batch.map(c=>({email:c.email,nomeAtual:c.nomeAtual||'',sobrenomeAtual:c.sobrenomeAtual||''}));
       const res=prov==='groq'
         ?await chamarGroq(key,entradas)
-        :await chamarIA(key,entradas);
+        :(prov==='gemini'?await chamarGemini(key,entradas):await chamarIA(key,entradas));
       batch.forEach(c=>{
         const r=res[c.email];
         if(r&&(r.nome||r.nome==='')){          if(r.nome){dfDados[c.idx]['Nome']=r.nome;dfDados[c.idx]['Sobrenome']=r.sobrenome||'';preenchidos++;}          else if(r.nome===''&&(c.nomeAtual||c.sobrenomeAtual)){dfDados[c.idx]['Nome']='';dfDados[c.idx]['Sobrenome']='';}        }      });
@@ -858,6 +860,43 @@ async function chamarGroq(apiKey,entradas){
     }
   }
   throw lastErr||new Error('Todos os modelos Groq falharam. Tente novamente em alguns instantes.');
+}
+
+async function chamarGemini(apiKey,entradas){
+  const prompt=buildPromptIA(entradas);
+  // Gemini 2.0 Flash → melhor custo-benefício; fallback para 1.5 Flash
+  const GEMINI_MODELS=['gemini-2.0-flash','gemini-1.5-flash'];
+  let lastErr=null;
+  for(const model of GEMINI_MODELS){
+    for(let tentativa=0;tentativa<3;tentativa++){
+      const url='https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+apiKey;
+      const resp=await fetch(url,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          contents:[{parts:[{text:prompt}]}],
+          generationConfig:{temperature:0.1,maxOutputTokens:4000}
+        })
+      });
+      if(resp.status===429){
+        const retryAfter=parseInt(resp.headers.get('retry-after')||'15',10);
+        const espera=Math.min((retryAfter||15)+2,30)*1000;
+        document.getElementById('ai-status').innerHTML='⏳ Rate limit atingido ('+model+'), aguardando '+Math.round(espera/1000)+'s...';
+        await new Promise(r=>setTimeout(r,espera));
+        lastErr=new Error('Rate limit ('+model+')');
+        continue;
+      }
+      if(!resp.ok){let t=await resp.text();lastErr=new Error('HTTP '+resp.status+' '+t.slice(0,120));break;}
+      const data=await resp.json();
+      let txt=((data.candidates||[])[0]?.content?.parts?.[0]?.text||'').trim();
+      txt=txt.replace(/^```json\s*|\s*```$/g,'').replace(/^```\s*|\s*```$/g,'');
+      let arr=JSON.parse(txt);
+      let out={};
+      arr.forEach(o=>{if(o&&o.email)out[String(o.email).trim().toLowerCase()]={nome:(o.nome||'').trim(),sobrenome:(o.sobrenome||'').trim()};});
+      return out;
+    }
+  }
+  throw lastErr||new Error('Todos os modelos Gemini falharam. Verifique sua chave ou tente mais tarde.');
 }
 </script>
 </body>
