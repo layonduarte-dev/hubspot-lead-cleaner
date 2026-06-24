@@ -382,7 +382,7 @@ const PROPS=['Nome','Sobrenome','Email','Número de Telefone','CPF/CNPJ','Nome d
 const COMPUTED=new Set(['Nome','Sobrenome','Cargo','Cargo RH','Faixa de Colaboradores','CPF/CNPJ']);
 let rawData=[], preserveCols=[], dfDados=[], dfInvalidos=[], logText='', detectInfo='';
 let selectedProps=new Set(['Nome','Sobrenome','Email']);
-let aiCandidates=[]; // {idx, email}
+let aiCandidates=[]; // {idx, email, nomeAtual, sobrenomeAtual}
 
 /* chips de propriedade */
 const propGrid=document.getElementById('prop-grid');
@@ -593,12 +593,26 @@ function runPipeline(){
       let nomeFonte = (temNome&&temSob)?(String(row['Nome']).trim()+' '+String(row['Sobrenome']).trim()):(temNome?String(row['Nome']).trim():'');
       if(nomeFonte){
         let[n,s]=splitNome(nomeFonte);
-        if(n){row['Nome']=n;row['Sobrenome']=s||'';if(s)nomesSeparados++;}
+        if(n){
+          row['Nome']=n;row['Sobrenome']=s||'';if(s)nomesSeparados++;
+          // Candidato a IA: nome grudado (sem espaço, >8 chars) ou sobrenome suspeito (sigla ≤3 chars ou igual ao prefixo do email)
+          const nomeGrudado=n&&!n.includes(' ')&&n.length>8;
+          const emailPrefix=(row['Email']||'').split('@')[0].split(/[._\-]/)[0].toLowerCase();
+          const sobSuspeito=s&&(s.replace(/[^a-zA-Z]/g,'').length<=3||norm(s)===emailPrefix);
+          if(nomeGrudado||sobSuspeito)aiCandidates.push({idx,email:row['Email'],nomeAtual:n,sobrenomeAtual:s||''});
+        }
         else{row['Nome']='';row['Sobrenome']='';nomesZerados++;}
       }else{
         let[n,s,status]=extractNameFromEmail(row['Email']);
-        if(n){row['Nome']=n;row['Sobrenome']=s||'';enriched++;}
-        else{row['Nome']='';row['Sobrenome']='';if(status==='ambiguo')aiCandidates.push({idx,email:row['Email']});}
+        if(n){
+          row['Nome']=n;row['Sobrenome']=s||'';enriched++;
+          // Candidato a IA: nome extraído do email que parece grudado
+          const nomeGrudado=n&&!n.includes(' ')&&n.length>8;
+          const emailPrefix=(row['Email']||'').split('@')[0].split(/[._\-]/)[0].toLowerCase();
+          const sobSuspeito=s&&(s.replace(/[^a-zA-Z]/g,'').length<=3||norm(s)===emailPrefix);
+          if(nomeGrudado||sobSuspeito)aiCandidates.push({idx,email:row['Email'],nomeAtual:n,sobrenomeAtual:s||''});
+        }
+        else{row['Nome']='';row['Sobrenome']='';if(status==='ambiguo')aiCandidates.push({idx,email:row['Email'],nomeAtual:'',sobrenomeAtual:''});}
       }
       dados.push(row);idx++;
     });
@@ -730,27 +744,40 @@ async function refinarComIA(){
     const batch=aiCandidates.slice(i,i+lote);
     status.innerHTML='🤖 Processando '+(i+1)+'–'+Math.min(i+lote,total)+' de '+total+'...';
     try{
+      const entradas=batch.map(c=>({email:c.email,nomeAtual:c.nomeAtual||'',sobrenomeAtual:c.sobrenomeAtual||''}));
       const res=prov==='groq'
-        ?await chamarGroq(key,batch.map(c=>c.email))
-        :await chamarIA(key,batch.map(c=>c.email));
+        ?await chamarGroq(key,entradas)
+        :await chamarIA(key,entradas);
       batch.forEach(c=>{
         const r=res[c.email];
-        if(r&&r.nome){dfDados[c.idx]['Nome']=r.nome;dfDados[c.idx]['Sobrenome']=r.sobrenome||'';preenchidos++;}
-      });
+        if(r&&(r.nome||r.nome==='')){          if(r.nome){dfDados[c.idx]['Nome']=r.nome;dfDados[c.idx]['Sobrenome']=r.sobrenome||'';preenchidos++;}          else if(r.nome===''&&(c.nomeAtual||c.sobrenomeAtual)){dfDados[c.idx]['Nome']='';dfDados[c.idx]['Sobrenome']='';}        }      });
     }catch(err){status.innerHTML='❌ Erro: '+esc(err.message)+' (verifique a chave/limite da API)';document.getElementById('ai-run').disabled=false;return;}
     feitos+=batch.length;
   }
   renderTable('table-dados',dfDados);
-  status.innerHTML='✅ Concluído! A IA preencheu '+preenchidos+' de '+total+' nomes. Confira na tabela e baixe o CSV.';
+  status.innerHTML='✅ Concluído! A IA corrigiu/preencheu '+preenchidos+' de '+total+' nomes. Confira na tabela e baixe o CSV.';
   document.getElementById('ai-run').disabled=false;
 }
 
-async function chamarIA(apiKey,emails){
-  const prompt='Você recebe uma lista de e-mails. Para cada um, extraia APENAS nome de PESSOA física a partir do prefixo (antes do @). '+
-    'Regras: (1) Se for caixa institucional/genérica (contato, vendas, rh, financeiro...), empresa, marca ou não der para identificar uma pessoa real, retorne nome e sobrenome vazios. '+
-    '(2) Separe o primeiro nome em "nome" e o restante em "sobrenome". (3) Capitalize corretamente em português. '+
-    '(4) NÃO invente: na dúvida, deixe vazio.\n\n'+
-    'Responda APENAS um JSON válido, array de objetos {"email","nome","sobrenome"}, sem texto extra.\n\nE-mails:\n'+emails.join('\n');
+function buildPromptIA(entradas){
+  const linhas=entradas.map(e=>{
+    let s=e.email;
+    if(e.nomeAtual||e.sobrenomeAtual)s+=' | nome_atual: "'+e.nomeAtual+(e.sobrenomeAtual?' '+e.sobrenomeAtual:'')+'"';
+    return s;
+  }).join('\n');
+  return 'Você recebe uma lista de e-mails de contatos brasileiros. Cada linha pode conter o e-mail e, opcionalmente, o nome que foi extraído automaticamente (campo nome_atual). '+
+    'Sua tarefa é retornar o nome e sobrenome CORRETOS da pessoa física.\n\n'+
+    'REGRAS:\n'+
+    '1. Use o prefixo do e-mail como fonte principal para inferir o nome real.\n'+
+    '2. Se nome_atual existir mas parecer grudado (ex: "Andreacristina", "Magnarodrigues"), separe corretamente (Andrea Cristina, Magna Rodrigues).\n'+
+    '3. Se nome_atual existir mas o sobrenome for uma sigla curta ou inválida (ex: "Ac", "Lsp", "Rh"), descarte o sobrenome e use o e-mail para inferir o correto.\n'+
+    '4. Se for caixa genérica/institucional (contato, vendas, rh, financeiro, suporte...) ou empresa/marca, retorne nome e sobrenome vazios.\n'+
+    '5. Capitalize corretamente em português (preposições como de/da/do em minúsculas).\n'+
+    '6. NÃO invente nomes: se genuinamente não der para identificar uma pessoa, deixe vazio.\n\n'+
+    'Responda APENAS um JSON válido, array de objetos {"email","nome","sobrenome"}, sem texto extra.\n\nEntradas:\n'+linhas;
+}
+async function chamarIA(apiKey,entradas){
+  const prompt=buildPromptIA(entradas);
   const resp=await fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
     headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
@@ -766,12 +793,8 @@ async function chamarIA(apiKey,emails){
   return out;
 }
 
-async function chamarGroq(apiKey,emails){
-  const prompt='Você recebe uma lista de e-mails. Para cada um, extraia APENAS nome de PESSOA física a partir do prefixo (antes do @). '+
-    'Regras: (1) Se for caixa institucional/genérica (contato, vendas, rh, financeiro...), empresa, marca ou não der para identificar uma pessoa real, retorne nome e sobrenome vazios. '+
-    '(2) Separe o primeiro nome em "nome" e o restante em "sobrenome". (3) Capitalize corretamente em português. '+
-    '(4) NÃO invente: na dúvida, deixe vazio.\n\n'+
-    'Responda APENAS um JSON válido, array de objetos {"email","nome","sobrenome"}, sem texto extra.\n\nE-mails:\n'+emails.join('\n');
+async function chamarGroq(apiKey,entradas){
+  const prompt=buildPromptIA(entradas);
   const GROQ_MODELS=['llama-3.3-70b-versatile','llama3-70b-8192','llama-3.1-8b-instant'];
   let lastErr=null;
   for(const model of GROQ_MODELS){
