@@ -107,6 +107,12 @@
     <h2>🎯 Propriedades desta planilha</h2>
     <p class="sub">Marque as propriedades que existem/quer no resultado. O app só trata e exporta as marcadas. (E-mail é sempre obrigatório.)</p>
     <div class="prop-grid" id="prop-grid"></div>
+    <div id="alper-chip-wrap" style="margin-top:10px;display:none;align-items:center;flex-wrap:wrap;gap:8px">
+      <div id="alper-chip" class="chip" onclick="toggleAlper(this)" style="background:var(--surface);border-color:#e8732a;color:#e8732a;font-weight:600;gap:8px">
+        <span style="font-size:15px">🔶</span> Alper Seguros
+      </div>
+      <span style="font-size:12px;color:var(--text-3);margin-left:10px">Ativa tratamento especial da pesquisa de plano de saúde</span>
+    </div>
     <div id="obs-box" class="hidden">
       <textarea id="obs-text" placeholder="Texto que será preenchido em todas as linhas da coluna 'Observação'. Ex: Captado na Feira RH 2026"></textarea>
     </div>
@@ -199,7 +205,8 @@ const HUBSPOT_TARGETS={
   'Faixa de Colaboradores':['faixa de colaboradores','colaboradores','numero de funcionarios','company size','employees','porte da empresa','tamanho da empresa','qtd funcionarios','quantidade de colaboradores'],
   'Valor da Mensalidade':['valor da mensalidade','mensalidade','valor mensal','ticket','mrr','valor do plano','valor'],
   'Cliente Sólides/Tangerino?':['cliente solides','solides','tangerino','cliente solides/tangerino','ja e cliente','cliente solides/tangerino?'],
-  'Observação':['observacao','observacoes','obs','notas','nota','comentario','comentarios']
+  'Observação':['observacao','observacoes','obs','notas','nota','comentario','comentarios'],
+  'Informações de Negócios':['informacoes de negocios','informacoes negocios','info negocios','negocios','business info','deal info']
 };
 const FAIXAS_OFICIAIS=[
   {low:1,high:9,label:'Até 9 funcionários'},{low:10,high:19,label:'De 10 a 19 funcionários'},
@@ -392,10 +399,11 @@ function mapHeader(h){let c=headerCandidates(h);return c.length?c[0].target:null
 function isAreaColumn(h){let n=norm(h);return n.includes('atuacao')||(n.includes('area')&&n.includes('rh'))||n.includes('qual sua area');}
 
 /* ===================== ESTADO + UI ===================== */
-const PROPS=['Nome','Sobrenome','Email','Número de Telefone','CPF/CNPJ','Nome da Empresa','Cargo','Cargo RH','Faixa de Colaboradores','Valor da Mensalidade','Cliente Sólides/Tangerino?','Observação','Outros'];
+const PROPS=['Nome','Sobrenome','Email','Número de Telefone','CPF/CNPJ','Nome da Empresa','Cargo','Cargo RH','Faixa de Colaboradores','Valor da Mensalidade','Cliente Sólides/Tangerino?','Observação','Informações de Negócios','Outros'];
 const COMPUTED=new Set(['Nome','Sobrenome','Cargo','Cargo RH','Faixa de Colaboradores','CPF/CNPJ']);
 let rawData=[], preserveCols=[], dfDados=[], dfInvalidos=[], logText='', detectInfo='';
 let selectedProps=new Set(['Nome','Sobrenome','Email']);
+let alperAtivo=false;
 let aiCandidates=[]; // {idx, email, nomeAtual, sobrenomeAtual}
 
 /* chips de propriedade */
@@ -407,6 +415,16 @@ function renderProps(){
     return '<div class="chip'+on+locked+'" data-p="'+esc(p)+'" onclick="toggleProp(this)"><span class="dot"></span>'+esc(p)+'</div>';
   }).join('');
 }
+function toggleAlper(el){
+  alperAtivo=!alperAtivo;
+  el.classList.toggle('on',alperAtivo);
+  // quando Alper ativo, garante Observação e Informações de Negócios marcados
+  if(alperAtivo){
+    selectedProps.add('Observação');selectedProps.add('Informações de Negócios');
+    document.getElementById('obs-box').classList.remove('hidden');
+  }
+  renderChips();
+}
 function toggleProp(el){
   let p=el.getAttribute('data-p');
   if(p==='Email')return; // sempre obrigatório
@@ -414,6 +432,8 @@ function toggleProp(el){
   el.classList.toggle('on');
   document.getElementById('outros-box').classList.toggle('hidden',!selectedProps.has('Outros'));
   document.getElementById('obs-box').classList.toggle('hidden',!selectedProps.has('Observação'));
+  document.getElementById('alper-chip-wrap').style.display=selectedProps.has('Observação')?'flex':'none';
+  if(!selectedProps.has('Observação')&&alperAtivo){alperAtivo=false;document.getElementById('alper-chip').classList.remove('on');}
 }
 renderProps();
 
@@ -455,6 +475,8 @@ function autoSelectProps(){
   renderProps();
   document.getElementById('outros-box').classList.toggle('hidden',!selectedProps.has('Outros'));
   document.getElementById('obs-box').classList.toggle('hidden',!selectedProps.has('Observação'));
+  document.getElementById('alper-chip-wrap').style.display=selectedProps.has('Observação')?'flex':'none';
+  if(!selectedProps.has('Observação')&&alperAtivo){alperAtivo=false;document.getElementById('alper-chip').classList.remove('on');}
   renderColMap();
 }
 /* Painel "Mais informações": lista cada cabeçalho com dropdown de propriedade */
@@ -578,6 +600,16 @@ function runPipeline(){
       if(selectedProps.has('CPF/CNPJ')&&docKey)mapped['CPF/CNPJ']=limparDoc(row[docKey]);
       if(selectedProps.has('Número de Telefone')&&mapped['Número de Telefone'])mapped['Número de Telefone']=limparTelefone(mapped['Número de Telefone']);
       if(selectedProps.has('Valor da Mensalidade')&&mapped['Valor da Mensalidade'])mapped['Valor da Mensalidade']=limparMensalidade(mapped['Valor da Mensalidade']);
+      if(selectedProps.has('Informações de Negócios')&&alperAtivo){
+        // Preenche Informações de Negócios com o valor transformado da coluna "conhecer alternativas"
+        const colConhecer=headers.find(h=>/conhecer.*alternativas|alternativas.*gestao/i.test(h.replace(/[^a-zA-ZÀ-ú0-9 ]/g,' ')));
+        if(colConhecer){
+          const v=String(row[colConhecer]||'').trim().toLowerCase();
+          if(v==='sim')mapped['Informações de Negócios']='Alper Seguros - Tenho Interesse';
+          else if(v==='talvez')mapped['Informações de Negócios']='Alper Seguros - Talvez tenha Interesse';
+          else if(v&&v!=='nan'&&v!=='null')mapped['Informações de Negócios']=row[colConhecer];
+        }
+      }
       if(selectedProps.has('Outros')){
         const partes=[];
         if(outrosText)partes.push(outrosText);
@@ -587,7 +619,35 @@ function runPipeline(){
         });
         if(partes.length)mapped['Outros']=partes.join('\n');
       }
-      if(selectedProps.has('Observação')&&obsText)mapped['Observação']=obsText;
+      if(selectedProps.has('Observação')){
+        if(alperAtivo){
+          // Alper Seguros: prefixo + 3 colunas da pesquisa de plano de saúde
+          const ALPER_PREFIXO='Este cliente participou da Pesquisa de Produtos de Planos de Saúde como base de contextualização de qualificação para nossa empresa parceira Alper Seguros. As informações abaixo refletem a situação atual da empresa:';
+          const ALPER_COLS=[
+            {pat:/oferece.*plano.*saude|plano.*saude.*colaboradores/i,  label:'Sua empresa oferece plano de saúde aos colaboradores?'},
+            {pat:/proxima.*renova|vencimento.*contrato|renovacao.*vencimento/i, label:'Quando acontece a próxima renovação ou vencimento do contrato atual?'},
+            {pat:/conhecer.*alternativas|alternativas.*gestao.*plano/i, label:'Você gostaria de conhecer alternativas para melhorar a gestão do plano de saúde da sua empresa?'}
+          ];
+          const partes=[ALPER_PREFIXO];
+          ALPER_COLS.forEach(({pat,label})=>{
+            // encontra a coluna pelo padrão de nome
+            const col=headers.find(h=>pat.test(h.replace(/[^a-zA-ZÀ-ú0-9 ]/g,' ')));
+            if(!col)return;
+            let val=String(row[col]||'').trim();
+            if(!val||val.toLowerCase()==='nan'||val.toLowerCase()==='null')return;
+            // transforma Sim/Talvez para o campo de "conhecer alternativas"
+            if(/conhecer.*alternativas|alternativas.*gestao/i.test(col.replace(/[^a-zA-ZÀ-ú0-9 ]/g,' '))){
+              const vn=val.toLowerCase().trim();
+              if(vn==='sim')val='Alper Seguros - Tenho Interesse';
+              else if(vn==='talvez')val='Alper Seguros - Talvez tenha Interesse';
+            }
+            partes.push('\n'+label+': '+val);
+          });
+          mapped['Observação']=partes.join('\n');
+        } else if(obsText){
+          mapped['Observação']=obsText;
+        }
+      }
       // Converte Sim/Não da propriedade Cliente Sólides/Tangerino?
       if(selectedProps.has('Cliente Sólides/Tangerino?')&&mapped['Cliente Sólides/Tangerino?']){
         let v=norm(mapped['Cliente Sólides/Tangerino?']);
