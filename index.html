@@ -418,10 +418,20 @@ function renderProps(){
 function toggleAlper(el){
   alperAtivo=!alperAtivo;
   el.classList.toggle('on',alperAtivo);
-  // quando Alper ativo, garante Observação e Informações de Negócios marcados
   if(alperAtivo){
-    selectedProps.add('Observação');selectedProps.add('Informações de Negócios');
+    // Ativar: marca Observação e Informações de Negócios automaticamente
+    selectedProps.add('Observação');
+    selectedProps.add('Informações de Negócios');
     document.getElementById('obs-box').classList.remove('hidden');
+    document.getElementById('obs-text').placeholder='Preenchido automaticamente pelo modo Alper Seguros';
+    document.getElementById('obs-text').disabled=true;
+    document.getElementById('obs-text').style.opacity='0.45';
+  } else {
+    // Desativar: desmarca as props que foram auto-adicionadas e restaura caixa
+    selectedProps.delete('Informações de Negócios');
+    document.getElementById('obs-text').disabled=false;
+    document.getElementById('obs-text').style.opacity='1';
+    document.getElementById('obs-text').placeholder="Texto que será preenchido em todas as linhas da coluna 'Observação'. Ex: Captado na Feira RH 2026";
   }
   renderChips();
 }
