@@ -107,6 +107,9 @@
     <h2>🎯 Propriedades desta planilha</h2>
     <p class="sub">Marque as propriedades que existem/quer no resultado. O app só trata e exporta as marcadas. (E-mail é sempre obrigatório.)</p>
     <div class="prop-grid" id="prop-grid"></div>
+    <div id="obs-box" class="hidden">
+      <textarea id="obs-text" placeholder="Texto que será preenchido em todas as linhas da coluna 'Observação'. Ex: Captado na Feira RH 2026"></textarea>
+    </div>
     <div id="outros-box" class="hidden">
       <textarea id="outros-text" placeholder="Explique o que a propriedade 'Outros' deve conter. Ex: preencher todas as linhas com 'Origem: Feira RH 2026'"></textarea>
     </div>
@@ -410,6 +413,7 @@ function toggleProp(el){
   if(selectedProps.has(p))selectedProps.delete(p);else selectedProps.add(p);
   el.classList.toggle('on');
   document.getElementById('outros-box').classList.toggle('hidden',!selectedProps.has('Outros'));
+  document.getElementById('obs-box').classList.toggle('hidden',!selectedProps.has('Observação'));
 }
 renderProps();
 
@@ -450,6 +454,7 @@ function autoSelectProps(){
   if(headers.some(isAreaColumn)||selectedProps.has('Cargo')){selectedProps.add('Cargo');selectedProps.add('Cargo RH');}
   renderProps();
   document.getElementById('outros-box').classList.toggle('hidden',!selectedProps.has('Outros'));
+  document.getElementById('obs-box').classList.toggle('hidden',!selectedProps.has('Observação'));
   renderColMap();
 }
 /* Painel "Mais informações": lista cada cabeçalho com dropdown de propriedade */
@@ -514,6 +519,7 @@ function runPipeline(){
     let docKey=Object.keys(headerMap).find(k=>headerMap[k]==='CPF/CNPJ')||headers.find(h=>!allPreserve.includes(h)&&ehColunaDoc(h));
     let areaCols=headers.filter(h=>h!==roleKey&&!allPreserve.includes(h)&&isAreaColumn(h));
     const outrosText=document.getElementById('outros-text').value.trim();
+    const obsText=document.getElementById('obs-text').value.trim();
     // toda propriedade com coluna mapeada entra na saída (mesmo sem o chip marcado)
     Object.values(headerMap).forEach(t=>{if(PROPS.includes(t))selectedProps.add(t);});
     if(selectedProps.has('Nome'))selectedProps.add('Sobrenome');
@@ -571,6 +577,7 @@ function runPipeline(){
       if(selectedProps.has('Número de Telefone')&&mapped['Número de Telefone'])mapped['Número de Telefone']=limparTelefone(mapped['Número de Telefone']);
       if(selectedProps.has('Valor da Mensalidade')&&mapped['Valor da Mensalidade'])mapped['Valor da Mensalidade']=limparMensalidade(mapped['Valor da Mensalidade']);
       if(selectedProps.has('Outros')&&outrosText)mapped['Outros']=outrosText;
+      if(selectedProps.has('Observação')&&obsText)mapped['Observação']=obsText;
       // Converte Sim/Não da propriedade Cliente Sólides/Tangerino?
       if(selectedProps.has('Cliente Sólides/Tangerino?')&&mapped['Cliente Sólides/Tangerino?']){
         let v=norm(mapped['Cliente Sólides/Tangerino?']);
