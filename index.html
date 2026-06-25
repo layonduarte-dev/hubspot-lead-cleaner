@@ -462,7 +462,7 @@ function renderColMap(){
   if(!rawData.length){document.getElementById('colmap-card').style.display='none';return;}
   const headers=Object.keys(rawData[0]);
   const auto=buildHeaderMap(headers);
-  const opcoes=['(ignorar)','(preservar)',...PROPS];
+  const opcoes=['(ignorar)','(preservar)','(juntar em Outros)',...PROPS];
   const list=document.getElementById('colmap-list');
   list.innerHTML=headers.map(h=>{
     let sel=auto[h]||'(ignorar)';
@@ -510,7 +510,9 @@ function runPipeline(){
     const allPreserve=[...new Set([...preserveCols,...preserveFromMap])];
     // headerMap só com targets reais (ignora (preservar)/(ignorar))
     const headerMap={};
-    headers.forEach(h=>{let t=fullMap[h];if(t&&t!=='(preservar)'&&t!=='(ignorar)'&&!allPreserve.includes(h))headerMap[h]=t;});
+    const juntarCols=headers.filter(h=>fullMap[h]==='(juntar em Outros)');
+    if(juntarCols.length){selectedProps.add('Outros');document.getElementById('outros-box').classList.remove('hidden');}
+    headers.forEach(h=>{let t=fullMap[h];if(t&&t!=='(preservar)'&&t!=='(ignorar)'&&t!=='(juntar em Outros)'&&!allPreserve.includes(h))headerMap[h]=t;});
 
     let emailKey=Object.keys(headerMap).find(k=>headerMap[k]==='Email')||headers.find(h=>norm(h).includes('mail'));
     let roleKey=Object.keys(headerMap).find(k=>headerMap[k]==='Cargo');
@@ -576,7 +578,15 @@ function runPipeline(){
       if(selectedProps.has('CPF/CNPJ')&&docKey)mapped['CPF/CNPJ']=limparDoc(row[docKey]);
       if(selectedProps.has('Número de Telefone')&&mapped['Número de Telefone'])mapped['Número de Telefone']=limparTelefone(mapped['Número de Telefone']);
       if(selectedProps.has('Valor da Mensalidade')&&mapped['Valor da Mensalidade'])mapped['Valor da Mensalidade']=limparMensalidade(mapped['Valor da Mensalidade']);
-      if(selectedProps.has('Outros')&&outrosText)mapped['Outros']=outrosText;
+      if(selectedProps.has('Outros')){
+        const partes=[];
+        if(outrosText)partes.push(outrosText);
+        juntarCols.forEach(col=>{
+          const val=String(row[col]||'').trim();
+          if(val&&val.toLowerCase()!=='nan'&&val.toLowerCase()!=='null')partes.push(col+': '+val);
+        });
+        if(partes.length)mapped['Outros']=partes.join('\n');
+      }
       if(selectedProps.has('Observação')&&obsText)mapped['Observação']=obsText;
       // Converte Sim/Não da propriedade Cliente Sólides/Tangerino?
       if(selectedProps.has('Cliente Sólides/Tangerino?')&&mapped['Cliente Sólides/Tangerino?']){
