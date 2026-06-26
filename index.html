@@ -240,7 +240,8 @@ if(/[a-z0-9]combr$/.test(dom)&&!dom.includes('.com.br'))dom=dom.replace(/combr$/
 if(/[a-z0-9]comr$/.test(dom)&&!dom.includes('.com'))dom=dom.replace(/comr$/,'.com');
 return local+'@'+dom;}
 function validSyntax(e){return !!e&&/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);}
-function isJunk(e){if(!e||!e.includes('@'))return true;if(JUNK_EMAILS.has(e))return true;let i=e.lastIndexOf('@');let local=e.slice(0,i),dom=e.slice(i+1);let domRoot=dom.split('.')[0];if(local===domRoot)return true;if(new Set([...local]).size===1&&local.length>0)return true;let seq=['asdf','qwer','qwerty','1234','abcd','teste','test'];return seq.includes(local)||['asdf','teste','test'].includes(domRoot);}
+const BLOCKED_DOMAINS=new Set(['solides.com.br','tangerino.com.br']);
+function isJunk(e){if(!e||!e.includes('@'))return true;if(JUNK_EMAILS.has(e))return true;let i=e.lastIndexOf('@');let local=e.slice(0,i),dom=e.slice(i+1);if(BLOCKED_DOMAINS.has(dom))return true;let domRoot=dom.split('.')[0];if(local===domRoot)return true;if(new Set([...local]).size===1&&local.length>0)return true;let seq=['asdf','qwer','qwerty','1234','abcd','teste','test'];return seq.includes(local)||['asdf','teste','test'].includes(domRoot);}
 
 function titleCasePT(s){if(!s)return '';const prep=new Set(['de','da','do','das','dos','e','di','del','la','y']);return String(s).trim().split(/\s+/).map((w,i)=>{let lw=w.toLowerCase();if(i>0&&prep.has(lw))return lw;return lw.charAt(0).toUpperCase()+lw.slice(1);}).join(' ');}
 function ehNomePessoal(texto){
@@ -691,7 +692,8 @@ function runPipeline(){
         }
       }
 
-      let motivo=!email?'E-mail ausente':(!validSyntax(email)?'Sintaxe inválida':(isJunk(email)?'E-mail de lixo/descartável':''));
+      let dominioEmail=email?email.slice(email.lastIndexOf('@')+1):'';
+      let motivo=!email?'E-mail ausente':(!validSyntax(email)?'Sintaxe inválida':(BLOCKED_DOMAINS.has(dominioEmail)?'Domínio bloqueado (@'+dominioEmail+')':(isJunk(email)?'E-mail de lixo/descartável':'')));
       if(motivo){mapped._motivo=motivo;invalidos.push(mapped);}else valid.push(mapped);
     });
     setProgress(65);
