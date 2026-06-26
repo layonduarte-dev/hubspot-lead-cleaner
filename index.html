@@ -331,7 +331,19 @@ function mapCargoRH(role,areaText){
   if(/\b(estudante|universitario|graduando)\b/.test(ctx))return 'Estudante';
   if(/recoloca/.test(ctx))return 'Buscando recolocação';
   if(/business partner|hrbp|bp de rh/.test(ctx))return 'Business Partner de RH';
+  // Verifica se área é RH ou DP — se não for, usa apenas o cargo para o de/para
+  const isRhArea=/\b(rh|recursos humanos|gestao de pessoas|people|gente|talentos|dp|departamento pessoal)\b/.test(a);
   const dp=/\bdp\b/.test(ctx)||ctx.includes('departamento pessoal');
+  // Se a área NÃO é RH (ex: Transporte, Comercial, Financeiro), mapeia só pelo cargo
+  if(!isRhArea&&a){
+    if(/\b(administrativo|financeiro|recepcionista|secretaria|contabil|contabilidade)\b/.test(ctx))return 'Administrativo/Financeiro';
+    if(/\b(diretor|diretora|head|vp|cho|presidente)\b/.test(r))return 'Sócio/CEO';
+    if(/\b(gerente|manager)\b/.test(r))return 'Outros';
+    if(/\b(coordenador|coordenadora|coord)\b/.test(r))return 'Outros';
+    if(/\b(analista|especialista|consultor|consultora)\b/.test(r))return 'Outros';
+    return 'Outros';
+  }
+  // Área é RH ou sem área — faz de/para completo
   if(/\b(diretor|diretora|head|vp|cho)\b/.test(r))return dp?'Diretor de DP':'Diretor de RH';
   if(/\b(gerente|manager)\b/.test(r))return dp?'Gerente de DP':'Gerente de RH';
   if(/\b(coordenador|coordenadora|coord)\b/.test(r))return dp?'Coordenador de DP':'Coordenador de RH';
@@ -346,6 +358,8 @@ function mapCargoRH(role,areaText){
 function combineCargo(role,areas){
   role=(role||'').trim();
   const junk=new Set(['valor nao encontrado','outro','outros','nao atuo no rh','na','n/a','-','','nao se aplica','nenhum']);
+  // Se o cargo for "Outros" (ou variantes), retorna "Outros" sem juntar departamento
+  if(junk.has(norm(role)))return role||'Outros';
   let parts=(areas||[]).map(a=>(a||'').trim()).filter(a=>{
     if(!a||junk.has(norm(a)))return false;
     let n=norm(a);
@@ -354,6 +368,8 @@ function combineCargo(role,areas){
     return true;
   });
   parts=[...new Set(parts)];
+  // Limpa barras e normaliza departamento (ex: "Transporte / Distribuição" → "Transporte / Distribuição")
+  parts=parts.map(p=>p.replace(/\s*\/\s*/g,' / ').trim());
   if(role&&parts.length)return role+' de '+parts.join(' e ');
   if(parts.length)return parts.join(' / ');
   return role;
@@ -396,7 +412,7 @@ function buildHeaderMap(headers,manual){
 }
 /* compat: melhor target único de um cabeçalho (usado no auto-select) */
 function mapHeader(h){let c=headerCandidates(h);return c.length?c[0].target:null;}
-function isAreaColumn(h){let n=norm(h);return n.includes('atuacao')||(n.includes('area')&&n.includes('rh'))||n.includes('qual sua area');}
+function isAreaColumn(h){let n=norm(h);return n.includes('atuacao')||n.includes('departamento')||n.includes('setor')||n.includes('divisao')||(n.includes('area')&&(n.includes('rh')||n.includes('empresa')||n.includes('atuacao')))||n.includes('qual sua area')||n.includes('qual o departamento');}
 
 /* ===================== ESTADO + UI ===================== */
 const PROPS=['Nome','Sobrenome','Email','Número de Telefone','CPF/CNPJ','Nome da Empresa','Cargo','Cargo RH','Faixa de Colaboradores','Valor da Mensalidade','Cliente Sólides/Tangerino?','Observação','Informações de Negócios','Outros'];
