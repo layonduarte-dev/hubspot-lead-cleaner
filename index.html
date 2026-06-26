@@ -368,8 +368,10 @@ function combineCargo(role,areas){
     return true;
   });
   parts=[...new Set(parts)];
-  // Limpa barras e normaliza departamento (ex: "Transporte / Distribuição" → "Transporte / Distribuição")
-  parts=parts.map(p=>p.replace(/\s*\/\s*/g,' / ').trim());
+  // Usa apenas o primeiro segmento antes da barra (ex: "Transporte / Distribuição" → "Transporte")
+  parts=parts.map(p=>p.split('/')[0].trim());
+  parts=parts.filter(p=>p.length>0);
+  parts=[...new Set(parts)];
   if(role&&parts.length)return role+' de '+parts.join(' e ');
   if(parts.length)return parts.join(' / ');
   return role;
