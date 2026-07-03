@@ -849,19 +849,33 @@ function downloadAll(){
 function abrirGoogleSheets(){
   if(!dfDados.length)return;
   let cols=Object.keys(dfDados[0]);
-  // Google Sheets espera TSV no clipboard; células com quebra de linha precisam de aspas
-  // para o Sheets manter o conteúdo (ex: Observação) todo na mesma célula
-  const escTsv=v=>{v=String(v??'');return /[\t\n"]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
-  let tsv=cols.map(escTsv).join('\t')+'\n'+dfDados.map(r=>cols.map(c=>escTsv(r[c])).join('\t')).join('\n');
-  navigator.clipboard.writeText(tsv).then(()=>{
+  // Copia como HTML (tabela) para o Google Sheets manter as quebras de linha DENTRO da célula.
+  // Colar texto puro faz o Sheets tratar cada \n como nova LINHA; só o HTML preserva a formatação.
+  const escHtml=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const cell=v=>'<td style="white-space:pre-wrap">'+escHtml(v).replace(/\n/g,'<br>')+'</td>';
+  const linha=arr=>'<tr>'+arr.map(cell).join('')+'</tr>';
+  const html='<meta charset="utf-8"><table>'+linha(cols)+dfDados.map(r=>linha(cols.map(c=>r[c]))).join('')+'</table>';
+  // Fallback texto puro: tab entre colunas; quebras viram espaço para não bagunçar as linhas
+  const escTsv=v=>String(v==null?'':v).replace(/[\t\n]/g,' ');
+  const tsv=cols.map(escTsv).join('\t')+'\n'+dfDados.map(r=>cols.map(c=>escTsv(r[c])).join('\t')).join('\n');
+  const abrir=()=>{
     window.open('https://docs.google.com/spreadsheets/create','_blank');
-    setTimeout(()=>{alert('✅ Dados copiados!\\n\\nNo Google Sheets que abriu:\\n1. Clique na célula A1\\n2. Cole com Ctrl+V (ou Cmd+V no Mac)\\n\\nTodos os '+dfDados.length+' registros serão colados.');},500);
-  }).catch(()=>{
-    // Fallback: se clipboard falhar, baixa o CSV e instrui importar
+    setTimeout(()=>{alert('✅ Dados copiados!\n\nNo Google Sheets que abriu:\n1. Clique na célula A1\n2. Cole com Ctrl+V (ou Cmd+V no Mac)\n\nTodos os '+dfDados.length+' registros serão colados, com a Observação já formatada.');},500);
+  };
+  const fallbackCSV=()=>{
     downloadCSV('dados');
     window.open('https://docs.google.com/spreadsheets/create','_blank');
-    alert('Não foi possível copiar automaticamente.\\n\\nO CSV foi baixado. No Google Sheets:\\n1. Vá em Arquivo → Importar\\n2. Aba Upload → arraste o CSV\\n3. Clique Importar dados');
-  });
+    alert('Não foi possível copiar automaticamente.\n\nO CSV foi baixado. No Google Sheets:\n1. Vá em Arquivo → Importar\n2. Aba Upload → arraste o CSV\n3. Clique Importar dados');
+  };
+  const copiarTexto=()=>navigator.clipboard.writeText(tsv).then(abrir).catch(fallbackCSV);
+  try{
+    if(navigator.clipboard&&window.ClipboardItem){
+      const item=new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([tsv],{type:'text/plain'})});
+      navigator.clipboard.write([item]).then(abrir).catch(copiarTexto);
+    }else{
+      copiarTexto();
+    }
+  }catch(e){copiarTexto();}
 }
 function esc2(v){v=String(v);return v.includes(',')||v.includes('"')||v.includes('\n')?'"'+v.replace(/"/g,'""')+'"':v;}
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
