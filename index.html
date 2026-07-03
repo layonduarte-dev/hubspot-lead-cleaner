@@ -849,8 +849,10 @@ function downloadAll(){
 function abrirGoogleSheets(){
   if(!dfDados.length)return;
   let cols=Object.keys(dfDados[0]);
-  // Google Sheets espera TSV (tab-separated) no clipboard, não CSV
-  let tsv=cols.join('\t')+'\n'+dfDados.map(r=>cols.map(c=>String(r[c]??'').replace(/[\t\n]/g,' ')).join('\t')).join('\n');
+  // Google Sheets espera TSV no clipboard; células com quebra de linha precisam de aspas
+  // para o Sheets manter o conteúdo (ex: Observação) todo na mesma célula
+  const escTsv=v=>{v=String(v??'');return /[\t\n"]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  let tsv=cols.map(escTsv).join('\t')+'\n'+dfDados.map(r=>cols.map(c=>escTsv(r[c])).join('\t')).join('\n');
   navigator.clipboard.writeText(tsv).then(()=>{
     window.open('https://docs.google.com/spreadsheets/create','_blank');
     setTimeout(()=>{alert('✅ Dados copiados!\\n\\nNo Google Sheets que abriu:\\n1. Clique na célula A1\\n2. Cole com Ctrl+V (ou Cmd+V no Mac)\\n\\nTodos os '+dfDados.length+' registros serão colados.');},500);
