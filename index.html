@@ -356,6 +356,20 @@ function mapCargoRH(role,areaText){
   if(/\b(administrativo|financeiro|recepcionista|secretaria)\b/.test(ctx))return 'Administrativo/Financeiro';
   return 'Outros';
 }
+/* Se o Cargo for SOMENTE indicação de área (RH, RH/DP, Recursos Humanos, DP, Departamento Pessoal),
+   sem nenhuma função real, faz o de/para para um cargo que faça sentido. */
+function cargoSoAreaRH(role){
+  let n=norm(role||'').replace(/[\/\\\-–—.|]+/g,' ').replace(/\s+/g,' ').trim();
+  if(!n)return null;
+  // Remove palavras de área e conectores; se sobrar algo, há função real → não mexe
+  let resto=n.replace(/\b(rh|dp|recursos|humanos|departamento|pessoal|e|de|do|da|dos|das)\b/g,'').replace(/\s+/g,' ').trim();
+  if(resto)return null;
+  let temDP=/\b(dp|departamento|pessoal)\b/.test(n);
+  let temRH=/\b(rh|recursos|humanos)\b/.test(n);
+  if(!temDP&&!temRH)return null;
+  if(temDP&&!temRH)return 'Analista DP';
+  return 'Analista de RH'; // RH, RH/DP, Recursos Humanos, RH+DP
+}
 function combineCargo(role,areas){
   role=(role||'').trim();
   const junk=new Set(['valor nao encontrado','outro','outros','nao atuo no rh','na','n/a','-','','nao se aplica','nenhum']);
@@ -616,10 +630,12 @@ function runPipeline(){
         let areas=areaCols.map(c=>row[c]);
         let temCargoRHOriginal=Object.keys(headerMap).some(k=>headerMap[k]==='Cargo RH');
         if(roleKey){
+          // Se o Cargo for só área (RH/DP), normaliza para Analista de RH / Analista DP
+          let roleEfetivo=cargoSoAreaRH(role)||role;
           // Tem coluna Cargo → faz o de/para normalmente
-          let cargoUnificado=combineCargo(role,areas);
+          let cargoUnificado=combineCargo(roleEfetivo,areas);
           if(cargoUnificado)mapped['Cargo']=cargoUnificado;
-          mapped['Cargo RH']=mapCargoRH(role,areas.join(' '));
+          mapped['Cargo RH']=mapCargoRH(roleEfetivo,areas.join(' '));
         } else if(temCargoRHOriginal){
           // Só tem Cargo RH (sem Cargo) → preserva o valor original como veio
           // mapped['Cargo RH'] já foi preenchido pelo headerMap acima, não sobrescreve
@@ -631,7 +647,7 @@ function runPipeline(){
       if(selectedProps.has('Valor da Mensalidade')&&mapped['Valor da Mensalidade'])mapped['Valor da Mensalidade']=limparMensalidade(mapped['Valor da Mensalidade']);
       if(selectedProps.has('Informações de Negócios')&&alperAtivo){
         // Preenche Informações de Negócios com o valor transformado da coluna "conhecer alternativas"
-        const colConhecer=headers.find(h=>/conhecer.*alternativas|alternativas.*gestao/i.test(h.replace(/[^a-zA-ZÀ-ú0-9 ]/g,' ')));
+        const colConhecer=headers.find(h=>/conhecer.*alternativas|alternativas.*gestao/i.test(norm(h)));
         if(colConhecer){
           const v=String(row[colConhecer]||'').trim().toLowerCase();
           if(v==='sim')mapped['Informações de Negócios']='Alper Seguros - Tenho Interesse';
@@ -660,12 +676,12 @@ function runPipeline(){
           const partes=[ALPER_PREFIXO];
           ALPER_COLS.forEach(({pat,label})=>{
             // encontra a coluna pelo padrão de nome
-            const col=headers.find(h=>pat.test(h.replace(/[^a-zA-ZÀ-ú0-9 ]/g,' ')));
+            const col=headers.find(h=>pat.test(norm(h)));
             if(!col)return;
             let val=String(row[col]||'').trim();
             if(!val||val.toLowerCase()==='nan'||val.toLowerCase()==='null')return;
             // transforma Sim/Talvez para o campo de "conhecer alternativas"
-            if(/conhecer.*alternativas|alternativas.*gestao/i.test(col.replace(/[^a-zA-ZÀ-ú0-9 ]/g,' '))){
+            if(/conhecer.*alternativas|alternativas.*gestao/i.test(norm(col))){
               const vn=val.toLowerCase().trim();
               if(vn==='sim')val='Alper Seguros - Tenho Interesse';
               else if(vn==='talvez')val='Alper Seguros - Talvez tenha Interesse';
