@@ -650,7 +650,7 @@ function runPipeline(){
         const colConhecer=headers.find(h=>/conhecer.*alternativas|alternativas.*gestao/i.test(norm(h)));
         if(colConhecer){
           const v=String(row[colConhecer]||'').trim().toLowerCase();
-          if(v==='sim')mapped['Informações de Negócios']='Alper Seguros - Tenho Interesse';
+          if(v==='sim')mapped['Informações de Negócios']='Alper Seguros - Tem Interesse';
           else if(v==='talvez')mapped['Informações de Negócios']='Alper Seguros - Talvez tenha Interesse';
           else if(v&&v!=='nan'&&v!=='null')mapped['Informações de Negócios']=row[colConhecer];
         }
