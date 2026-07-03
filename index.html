@@ -699,6 +699,16 @@ function runPipeline(){
         if(v==='sim'||v==='s'||v==='yes'||v==='1'||v==='true')mapped['Cliente Sólides/Tangerino?']='Sou Cliente Sólides';
         else if(v==='nao'||v==='n'||v==='no'||v==='0'||v==='false'||v==='nao')mapped['Cliente Sólides/Tangerino?']='Não sou Cliente';
       }
+      // Regra: todo valor da propriedade Informações de Negócios fica entre parênteses
+      if(selectedProps.has('Informações de Negócios')&&mapped['Informações de Negócios']!=null){
+        let vin=String(mapped['Informações de Negócios']).trim();
+        if(vin&&!['nan','null','na'].includes(vin.toLowerCase())){
+          if(!(vin.startsWith('(')&&vin.endsWith(')')))vin='('+vin+')';
+          mapped['Informações de Negócios']=vin;
+        }else{
+          mapped['Informações de Negócios']='';
+        }
+      }
       // Filtro Check-in: se alguma coluna preservada com nome "check-in" existir e o valor for "não", descarta a linha
       let checkinKey=allPreserve.find(h=>norm(h).includes('check')&&norm(h).includes('in'));
       if(checkinKey){
