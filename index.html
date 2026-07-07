@@ -221,6 +221,11 @@ const COMPANY_WORDS=new Set(['pizzaria','restaurante','bar','padaria','mercado',
 const EMPRESA_RE=/\b(ltda|me|epp|eireli|s\/?a|sa|s\.a|cia)\b/i;
 const TAGS_PURAS=new Set(['rh','dp','ti','tib','ai','sgi','dho','onboarding','recrutamento','selecao']);
 const NOMES_COMUNS=new Set(['ana','maria','joao','jose','antonio','francisco','carlos','paulo','pedro','lucas','luiz','luis','marcos','gabriel','rafael','daniel','marcelo','bruno','eduardo','felipe','raimundo','rodrigo','manoel','fernando','gustavo','tiago','thiago','victor','vitor','andre','fabio','leonardo','diego','douglas','sergio','julio','julia','juliana','jessica','adriana','fernanda','patricia','aline','sandra','camila','amanda','bruna','leticia','luciana','vanessa','mariana','gabriela','larissa','beatriz','bianca','carla','catarina','cristina','daniela','debora','elaine','flavia','helena','isabela','isabel','jaqueline','karina','kelly','laura','lais','livia','lorena','marcia','marta','michele','monica','natalia','priscila','rafaela','raquel','renata','roberta','rosana','sabrina','sara','sarah','simone','sonia','tatiane','tania','vera','vivian','viviane','alice','clara','cecilia','manuela','sofia','sophia','valentina','heloisa','luiza','lara','antonia','adriano','alexandre','alex','anderson','arthur','breno','caio','cesar','cristiano','davi','denis','edson','emerson','enzo','erick','evandro','fabricio','geraldo','gilberto','guilherme','henrique','hugo','igor','ivan','jair','jonas','jorge','juliano','leandro','marcio','mateus','matheus','mauricio','murilo','nelson','nicolas','otavio','ricardo','roberto','robson','ronaldo','samuel','vinicius','wagner','wesley','william','willian','yuri','agatha','alessandra','alessandro','aparecida','augusto','benedito','claudia','claudio','cleber','cleiton','cristiane','damiao','eliane','elias','eliza','ellen','everton','geovana','giovana','giovanna','jefferson','jeferson','joana','joaquim','keila','kevin','kaua','lucia','luciano','marcela','milena','natan','nathan','pamela','pietro','regina','reginaldo','renan','rita','rogerio','sandro','silvana','silvia','tatiana','valeria','wallace','washington','flavio','vagner','elisangela','rosangela','marcella','isadora','yasmin','theo','noah','bernardo','miguel','heitor','lorenzo','benjamin','anthony','gael','ravi','bryan','levi','emanuel','francisca','luana','eduarda','mirella','rebeca','esther','marina','ester','vitoria','marcelo','rafaela']);
+// Sobrenomes brasileiros mais comuns (IBGE) — usados para dividir nomes grudados com mais precisão
+const SOBRENOMES_COMUNS=new Set(['silva','santos','oliveira','souza','sousa','rodrigues','ferreira','alves','pereira','lima','gomes','costa','ribeiro','martins','carvalho','almeida','lopes','soares','fernandes','vieira','barbosa','rocha','dias','nascimento','moreira','nunes','marques','machado','mendes','freitas','cardoso','ramos','goncalves','santana','teixeira','araujo','melo','moura','cavalcante','castro','campos','correia','cunha','pinto','monteiro','morais','moraes','pinheiro','miranda','matos','sales','farias','batista','borges','azevedo','andrade','viana','duarte','xavier','coelho','reis','maciel','tavares','guimaraes','brito','peixoto','fonseca','magalhaes','pacheco','sampaio','siqueira','bezerra','bastos','henriques','cordeiro','figueiredo','junqueira','carneiro','medeiros','queiroz','nogueira','franca','franco','pires','leal','leite','amaral','vasconcelos','barros','paiva','cruz','sa','lacerda','godoy','abreu','valenca','valença','domingues','esteves','faria','fontes','galvao','gouveia','januario','jardim','junior','luz','macedo','mota','navarro','oliveira','pena','prado','quintanilha','ramalho','sacramento','sanches','sarmento','tamburini','uchoa','vale','ventura','wanderley','xerez','zacarias','zanetti']);
+// Mapeamento acento-restaurado: forma sem-acento → forma correta capitalizada (para nomes comuns com acento em português)
+const ACENTOS_NOME={'jose':'José','joao':'João','luis':'Luís','andre':'André','jesus':'Jesus','fatima':'Fátima','helio':'Hélio','helena':'Helena','erica':'Érica','monica':'Mônica','veronica':'Verônica','vitoria':'Vitória','denise':'Denise','simone':'Simone','raquel':'Raquel','ines':'Inês','luzia':'Luzia','marcia':'Márcia','marilia':'Marília','saulo':'Saulo','samara':'Sâmara','tania':'Tânia','viviane':'Viviane','livia':'Lívia','sonia':'Sônia','claudio':'Cláudio','claudia':'Cláudia','glaucia':'Gláucia','decio':'Décio','erico':'Érico','ledo':'Lêdo','deborah':'Débora','debora':'Débora','heloisa':'Heloísa','isis':'Ísis','moises':'Moisés','noe':'Noé','odalisia':'Odalísia','otavio':'Otávio','stael':'Stael','ubirajara':'Ubirajara','venancio':'Venâncio','wesley':'Wesley','zuleica':'Zuleica','goncalves':'Gonçalves','concalves':'Gonçalves','conceicao':'Conceição','joaquim':'Joaquim'};
+function restaurarAcento(palavra){const key=norm(palavra);return ACENTOS_NOME[key]||null;}
 
 /* ===================== FUNÇÕES PURAS ===================== */
 function norm(s){if(!s)return '';return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
@@ -244,7 +249,8 @@ function validSyntax(e){return !!e&&/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);}
 const BLOCKED_DOMAINS=new Set(['solides.com.br','tangerino.com.br']);
 function isJunk(e){if(!e||!e.includes('@'))return true;if(JUNK_EMAILS.has(e))return true;let i=e.lastIndexOf('@');let local=e.slice(0,i),dom=e.slice(i+1);if(BLOCKED_DOMAINS.has(dom))return true;let domRoot=dom.split('.')[0];if(local===domRoot)return true;if(new Set([...local]).size===1&&local.length>0)return true;let seq=['asdf','qwer','qwerty','1234','abcd','teste','test'];return seq.includes(local)||['asdf','teste','test'].includes(domRoot);}
 
-function titleCasePT(s){if(!s)return '';const prep=new Set(['de','da','do','das','dos','e','di','del','la','y']);return String(s).trim().split(/\s+/).map((w,i)=>{let lw=w.toLowerCase();if(i>0&&prep.has(lw))return lw;return lw.charAt(0).toUpperCase()+lw.slice(1);}).join(' ');}
+function titleCasePT(s){if(!s)return '';const prep=new Set(['de','da','do','das','dos','e','di','del','la','y']);return String(s).trim().split(/\s+/).map((w,i)=>{let lw=w.toLowerCase();if(i>0&&prep.has(lw))return lw;const acentuado=restaurarAcento(lw);if(acentuado)return acentuado;return lw.charAt(0).toUpperCase()+lw.slice(1);}).join(' ');}
+const CARGO_SETOR_RE=/^(gerente|diretor|diretora|analista|especialista|coordenador|coordenadora|assistente|consultor|consultora|representante|supervisor|supervisora|vendedor|vendedora|operador|operadora|tecnico|tecnica|engenheiro|engenheira|contador|contadora|advogado|advogada|extracao|producao|fabricacao|comercio|industria|servicos|atividades)\b/i;
 function ehNomePessoal(texto){
   if(!texto||!String(texto).trim())return false;
   let s=String(texto).trim();
@@ -257,6 +263,10 @@ function ehNomePessoal(texto){
   if(!signif.length)return false;
   if(NAO_PESSOAL.has(signif[0]))return false;
   if(signif.every(p=>NAO_PESSOAL.has(p)))return false;
+  // Descrição de cargo/setor: 2+ preposições OU começa com palavra de cargo/CNAE ("Extração de Petróleo e Gás Natural")
+  const prepCount=palavras.filter(p=>prep.has(p)).length;
+  if(prepCount>=2)return false;
+  if(CARGO_SETOR_RE.test(s))return false;
   return true;
 }
 function removerTags(s){return s.split(/\s+/).filter(w=>!TAGS_PURAS.has(norm(w))).join(' ').replace(/^[\s\-–—|]+|[\s\-–—|]+$/g,'').trim();}
@@ -275,15 +285,37 @@ function splitNome(full){let limpo=limparNome(full);if(!limpo)return[null,null];
 /* Extrai nome de e-mail. Retorna [Nome, Sobrenome, status]
    status 'ambiguo' = não deu pra decidir (candidato a IA) */
 function quebrarGrudado(prefix){
+  // 1) Se já vier em camelCase (ex: "RoberValenca"), usa a fronteira de maiúsculas como pista primeiro
+  const camelParts=String(prefix).replace(/([a-z])([A-Z])/g,'$1 $2').split(/\s+/).filter(Boolean);
+  if(camelParts.length>=2){
+    return camelParts.map(p=>norm(p));
+  }
   let s=norm(prefix).replace(/[0-9]+/g,'');
   if(!s)return null;
+  // 2) Busca priorizando divisões onde a 2ª parte é um SOBRENOME conhecido (mais confiável que só nome+nome)
+  function buscaComSobrenome(resto,primeiro){
+    if(resto==='')return [];
+    for(let len=Math.min(12,resto.length);len>=3;len--){
+      let pedaco=resto.slice(0,len);
+      if(SOBRENOMES_COMUNS.has(pedaco)&&resto.slice(len)===''){return [pedaco];}
+    }
+    return null;
+  }
   function busca(resto){
     if(resto==='')return [];
     for(let len=Math.min(12,resto.length);len>=2;len--){
       let pedaco=resto.slice(0,len);
-      if(NOMES_COMUNS.has(pedaco)){let rec=busca(resto.slice(len));if(rec!==null)return [pedaco,...rec];}
+      if(NOMES_COMUNS.has(pedaco)||SOBRENOMES_COMUNS.has(pedaco)){let rec=busca(resto.slice(len));if(rec!==null)return [pedaco,...rec];}
     }
     return null;
+  }
+  // Tenta achar: [primeiro nome conhecido] + [sobrenome conhecido] primeiro (maior confiança)
+  for(let len=Math.min(10,s.length);len>=2;len--){
+    let primeiro=s.slice(0,len);
+    if(NOMES_COMUNS.has(primeiro)){
+      let restoSobrenome=buscaComSobrenome(s.slice(len));
+      if(restoSobrenome!==null&&restoSobrenome.length){return [primeiro,...restoSobrenome];}
+    }
   }
   let r=busca(s);
   return (r&&r.length>=1&&r.length<=3)?r:null;
