@@ -746,12 +746,30 @@ function runPipeline(){
         // CASOS QUE NÃO PRECISAM DE IA (já são bons):
         // • Nome tem espaço e ambos os tokens têm 3+ caracteres → confiante
         const tokens=n.trim().split(/\s+/);
-        if(tokens.length>=2&&tokens[0].replace(/[^a-zA-Z]/g,'').length>=3&&tokens[1].replace(/[^a-zA-Z]/g,'').length>=3){
-          return false; // Parece bom já
+        if(tokens.length===2&&tokens[0].replace(/[^a-zA-Z]/g,'').length>=3&&tokens[1].replace(/[^a-zA-Z]/g,'').length>=3){
+          // Verificar se parece descrição (tem padrão "palavra de palavra")
+          const PALAVRAS_DESCRIÇÃO=/^(gerente|diretor|analista|especialista|coordenador|assistente|consultor|representante|supervisor|vendedor|operador|técnico|engenheiro|contador|advogado|gerenciador|responsável|encarregado|chefe|coordenadoria|departamento|setor|divisão|área|unidade)$/i;
+          if(!PALAVRAS_DESCRIÇÃO.test(tokens[0])&&!PALAVRAS_DESCRIÇÃO.test(tokens[1])){
+            return false; // Parece bom já (não é padrão descrição)
+          }
         }
         
         // CASOS QUE PRECISAM DE IA:
         const PREFIXOS_INST=/^(adm|rh|fin|mkt|ger|dir|sup|coord|ti|ceo|coo|cfo|dp|rha|rhm|adma|adms)/;
+        
+        // Nome com múltiplas preposições = descrição ("Extração de Petróleo e Gás Natural")
+        if(/\b(de|da|do|dos|das|e|ou)\b/i.test(n)){
+          const preposCount=(n.match(/\b(de|da|do|dos|das|e)\b/gi)||[]).length;
+          if(preposCount>=2)return true; // Múltiplas preposições = provavelmente descrição
+        }
+        
+        // Palavras-chave de cargo/descrição no início
+        const CARGO_KEYWORDS=/^(gerente|diretor|analista|especialista|coordenador|assistente|consultor|representante|supervisor|vendedor|operador|técnico|engenheiro|contador|advogado|comercial|operações|desenvolvimento|planejamento|recursos|financeiro)\b/i;
+        if(CARGO_KEYWORDS.test(n))return true;
+        
+        // Palavras-chave genéricas de departamento
+        const DEPTO_KEYWORDS=/^(vendas|financeiro|recursos humanos|rh|marketing|mkt|operações|desenvolvimento|planejamento|ti|tecnologia|comercial|atendimento|sac|administrativo|administração|contabilidade|fiscal|legal|compras|suprimentos|logística|produção)$/i;
+        if(DEPTO_KEYWORDS.test(n))return true;
         
         // Nome sem espaço com 5+ chars (possível grudado: "rogeriogomes")
         if(!n.includes(' ')&&n.replace(/[^a-zA-Z]/g,'').length>=5)return true;
@@ -978,30 +996,37 @@ SUA TAREFA: Para cada entrada, decidir o nome e sobrenome CORRETOS da PESSOA FÍ
 REGRAS OBRIGATÓRIAS:
 
 [QUANDO DEIXAR VAZIO — nome="" e sobrenome=""]
-- O prefixo do e-mail não representa uma pessoa física real
-- Parece caixa institucional/departamento: contato, vendas, financeiro, rh, suporte, admin, info, comercial, sac, atendimento, noreply, etc.
-- Parece nome de empresa, marca, produto ou sigla sem sentido humano
-- Prefixo começa com sigla institucional colada: "adm+algo" (admartymed, admauppaa), "rh+algo" (rhsinop, rhtekmak, rhamigaopn), "fin+algo", "mkt+algo", "ger+algo"
-- Não dá para identificar com segurança uma pessoa real — DEIXE VAZIO, não invente
+❌ O prefixo do e-mail NÃO representa uma pessoa física real — DEIXE VAZIO:
+- Caixa institucional/departamento: contato, vendas, financeiro, rh, suporte, admin, info, comercial, sac, atendimento, noreply, etc.
+- Nome de empresa, marca, produto ou sigla sem sentido humano
+- Sigla institucional colada: "adm+algo" (admartymed), "rh+algo" (rhsinop), "fin+algo", "mkt+algo", "ger+algo"
+
+❌ PADRÕES QUE INDICAM DESCRIÇÃO, NÃO NOME (deixar vazio):
+- Múltiplas preposições ("de", "e", "da"): "Extração de Petróleo e Gás Natural" → vazio (é descrição de setor/cargo)
+- Palavras-chave descritivas: "Gerente de", "Diretor de", "Analista de", "Especialista em", "Coordenador de", "Assistente de"
+- Padrão "[Cargo] de [Setor]": "Vendedor de Tecnologia" → vazio (é cargo, não nome)
+- Nomes genéricos/corporativos: "Comercial", "Operações", "Desenvolvimento", "Planejamento"
+- Descrições em maiúscula: "RECURSOS HUMANOS", "FINANCEIRO", "TI" (são departamentos)
+
+❌ NUNCA INVENTE:
+- Não dá para identificar com segurança uma pessoa real → DEIXE VAZIO
 
 [QUANDO CORRIGIR]
 - nome_atual está grudado: separe corretamente → "Rogeriogomes" → nome="Rogerio" sobrenome="Gomes"
-- nome_atual tem sobrenome inválido (sigla ≤3 letras como "Ac", "Lsp", "Rh"): use o e-mail para inferir o sobrenome correto ou deixe sobrenome vazio
-- nome_atual tem prefixo institucional colado antes do nome real: extraia só o nome humano
+- nome_atual tem sobrenome inválido (sigla ≤3 letras como "Ac"): use o e-mail para inferir ou deixe sobrenome vazio
+- nome_atual tem prefixo institucional colado: extraia só o nome humano
 
-[FORMATAÇÃO]
+[FORMATAÇÃO FINAL]
 - Capitalize corretamente em português: primeira letra maiúscula, preposições (de/da/do/dos/das/e) em minúsculas
 - Separe: primeiro token em "nome", restante em "sobrenome"
 
 EXEMPLOS DE SAÍDA ESPERADA:
 - admartymed@gmail.com | nome_atual: "Admartymed" → {"nome":"","sobrenome":""} // adm+artymed = institucional
-- artymedrenata@gmail.com | nome_atual: "Artymedrenata" → {"nome":"","sobrenome":""} // artymed = empresa/marca
-- rhsinop@medsaor.com | nome_atual: "Rhsinop" → {"nome":"","sobrenome":""} // rh+sinop = departamento RH de Sinop
-- rhamigaopn@gmail.com | nome_atual: "Rhamigaopn" → {"nome":"","sobrenome":""} // rh+amiga+opn = institucional
-- rhtekmak@gmail.com | nome_atual: "Rhtekmak" → {"nome":"","sobrenome":""} // rh+tekmak = empresa
+- vendas@empresa.com | nome_atual: "Vendas" → {"nome":"","sobrenome":""} // departamento
+- extracao.petroleo@empresa.com | nome_atual: "Extração de Petróleo e Gás Natural" → {"nome":"","sobrenome":""} // descrição de setor
+- gerente.tecnologia@empresa.com | nome_atual: "Gerente de Tecnologia" → {"nome":"","sobrenome":""} // cargo, não nome
 - rogeriogomes@empresa.com | nome_atual: "Rogeriogomes" → {"nome":"Rogerio","sobrenome":"Gomes"}
-- andreacristina_ac@hotmail.com | nome_atual: "Andreacristina Ac" → {"nome":"Andrea","sobrenome":"Cristina"}
-- rodrigo@bfmeat.com | nome_atual: "Rodrigo" → {"nome":"Rodrigo","sobrenome":""}
+- rodrigo@empresa.com | nome_atual: "Rodrigo" → {"nome":"Rodrigo","sobrenome":""}
 
 Responda APENAS um JSON válido, array de objetos {"email","nome","sobrenome"}, sem texto extra, sem markdown.
 
