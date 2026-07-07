@@ -219,6 +219,8 @@ const FAIXAS_OFICIAIS=[
 const NAO_PESSOAL=new Set(['rh','dp','ti','tib','ai','sgi','dho','adm','financeiro','administrativo','comercial','marketing','vendas','suporte','atendimento','onboarding','recrutamento','selecao','departamento','setor','gestao','gestor','gestora','coordenacao','diretoria','gerencia','recursos','humanos','pessoal','contato','empresa','equipe','time','grupo','analista','assistente','auxiliar','coordenador','coordenadora','gerente','diretor','diretora','supervisor','supervisora','consultor','consultora','estagiario','estagiaria','socio','proprietario','founder','ceo','presidente','head','operacoes','operacional','produto','produtos','tecnologia','juridico','fiscal','contabil','contabilidade','logistica','compras','faturamento','cobranca','recepcao','secretaria','ouvidoria','sac']);
 const COMPANY_WORDS=new Set(['pizzaria','restaurante','bar','padaria','mercado','mercadinho','supermercado','loja','lojas','farmacia','drogaria','clinica','hospital','escola','colegio','academia','hotel','pousada','oficina','posto','transportadora','construtora','imobiliaria','banco','seguros','seguradora','fabrica','atacado','atacadista','varejo','magazine','boutique','salao','barbearia','petshop','lanchonete','cafeteria','cafe','sorveteria','hamburgueria','churrascaria','buffet','eventos','comercio','comercial','industria','servicos','tecnologia','solucoes','consultoria','distribuidora','transportes','empreendimentos','participacoes','holding','grupo','associacao','instituto','fundacao','representacoes','films','filmes','studio','estudio','design','digital','agencia','produtora','editora','engenharia','arquitetura','advocacia','odonto','odontologia','veterinaria','imoveis','corretora','factory','company','corp','tech','labs','ventures','capital','invest','investimentos']);
 const EMPRESA_RE=/\b(ltda|me|epp|eireli|s\/?a|sa|s\.a|cia)\b/i;
+// DDDs válidos no Brasil (ANATEL)
+const DDD_VALIDOS=new Set(['11','12','13','14','15','16','17','18','19','21','22','24','27','28','31','32','33','34','35','37','38','41','42','43','44','45','46','47','48','49','51','53','54','55','61','62','63','64','65','66','67','68','69','71','73','74','75','77','79','81','82','83','84','85','86','87','88','89','91','92','93','94','95','96','97','98','99']);
 const TAGS_PURAS=new Set(['rh','dp','ti','tib','ai','sgi','dho','onboarding','recrutamento','selecao']);
 const NOMES_COMUNS=new Set(['ana','maria','joao','jose','antonio','francisco','carlos','paulo','pedro','lucas','luiz','luis','marcos','gabriel','rafael','daniel','marcelo','bruno','eduardo','felipe','raimundo','rodrigo','manoel','fernando','gustavo','tiago','thiago','victor','vitor','andre','fabio','leonardo','diego','douglas','sergio','julio','julia','juliana','jessica','adriana','fernanda','patricia','aline','sandra','camila','amanda','bruna','leticia','luciana','vanessa','mariana','gabriela','larissa','beatriz','bianca','carla','catarina','cristina','daniela','debora','elaine','flavia','helena','isabela','isabel','jaqueline','karina','kelly','laura','lais','livia','lorena','marcia','marta','michele','monica','natalia','priscila','rafaela','raquel','renata','roberta','rosana','sabrina','sara','sarah','simone','sonia','tatiane','tania','vera','vivian','viviane','alice','clara','cecilia','manuela','sofia','sophia','valentina','heloisa','luiza','lara','antonia','adriano','alexandre','alex','anderson','arthur','breno','caio','cesar','cristiano','davi','denis','edson','emerson','enzo','erick','evandro','fabricio','geraldo','gilberto','guilherme','henrique','hugo','igor','ivan','jair','jonas','jorge','juliano','leandro','marcio','mateus','matheus','mauricio','murilo','nelson','nicolas','otavio','ricardo','roberto','robson','ronaldo','samuel','vinicius','wagner','wesley','william','willian','yuri','agatha','alessandra','alessandro','aparecida','augusto','benedito','claudia','claudio','cleber','cleiton','cristiane','damiao','eliane','elias','eliza','ellen','everton','geovana','giovana','giovanna','jefferson','jeferson','joana','joaquim','keila','kevin','kaua','lucia','luciano','marcela','milena','natan','nathan','pamela','pietro','regina','reginaldo','renan','rita','rogerio','sandro','silvana','silvia','tatiana','valeria','wallace','washington','flavio','vagner','elisangela','rosangela','marcella','isadora','yasmin','theo','noah','bernardo','miguel','heitor','lorenzo','benjamin','anthony','gael','ravi','bryan','levi','emanuel','francisca','luana','eduarda','mirella','rebeca','esther','marina','ester','vitoria','marcelo','rafaela']);
 // Sobrenomes brasileiros mais comuns (IBGE) — usados para dividir nomes grudados com mais precisão
@@ -343,7 +345,37 @@ function extractNameFromEmail(email){
 
 function limparDoc(v){if(v===null||v===undefined)return '';let s=String(v).replace(/\D/g,'');return s||'';}
 function ehColunaDoc(h){let n=norm(h);return n.includes('cpf')||n.includes('cnpj')||n.includes('documento')||n.includes('inscricao')||n==='doc';}
-function limparTelefone(v){if(v===null||v===undefined)return '';let s=String(v).trim();if(['','nan','none','null','na'].includes(s.toLowerCase()))return '';return s.replace(/\s+/g,'');}
+function limparTelefone(v){
+  if(v===null||v===undefined)return '';
+  let original=String(v).trim();
+  if(['','nan','none','null','na'].includes(original.toLowerCase()))return '';
+  let digitos=original.replace(/\D/g,'');
+  if(!digitos)return '';
+  // Remove código do país (55) se presente e sobrar tamanho nacional válido
+  if((digitos.length===12||digitos.length===13)&&digitos.startsWith('55')){
+    digitos=digitos.slice(2);
+  }
+  // Remove zero inicial de discagem (0DDD antigo)
+  if(digitos.length===11&&digitos.startsWith('0'))digitos=digitos.slice(1);
+  // Tamanho precisa ser 10 (fixo: DDD+8) ou 11 (celular: DDD+9)
+  if(digitos.length!==10&&digitos.length!==11)return '';
+  const ddd=digitos.slice(0,2);
+  if(!DDD_VALIDOS.has(ddd))return '';
+  const numero=digitos.slice(2);
+  // Celular (9 dígitos) deve começar com 9
+  if(numero.length===9&&numero[0]!=='9')return '';
+  // Fixo (8 dígitos) deve começar entre 2-5
+  if(numero.length===8&&!/^[2-5]/.test(numero))return '';
+  // Rejeita todos os dígitos iguais (11111111111, 00000000000)
+  if(/^(\d)\1+$/.test(digitos))return '';
+  // Rejeita sequência simples (ex: 1234567890, 0123456789)
+  const seqCrescente='0123456789'.includes(digitos)||'01234567890'.includes(digitos);
+  const seqDecrescente='9876543210'.includes(digitos)||'98765432109'.includes(digitos);
+  if(seqCrescente||seqDecrescente)return '';
+  // Rejeita se o "número" (sem DDD) tem todos os dígitos iguais (ex: DDD + 99999999)
+  if(/^(\d)\1+$/.test(numero))return '';
+  return original.replace(/\s+/g,'');
+}
 function limparMensalidade(v){
   if(v===null||v===undefined)return '';
   let s=String(v).trim();
@@ -676,7 +708,12 @@ function runPipeline(){
       }
       if(selectedProps.has('Faixa de Colaboradores')&&mapped['Faixa de Colaboradores'])mapped['Faixa de Colaboradores']=mapFaixa(mapped['Faixa de Colaboradores']);
       if(selectedProps.has('CPF/CNPJ')&&docKey)mapped['CPF/CNPJ']=limparDoc(row[docKey]);
-      if(selectedProps.has('Número de Telefone')&&mapped['Número de Telefone'])mapped['Número de Telefone']=limparTelefone(mapped['Número de Telefone']);
+      if(selectedProps.has('Número de Telefone')&&mapped['Número de Telefone']){
+        const telOriginal=mapped['Número de Telefone'];
+        const telLimpo=limparTelefone(telOriginal);
+        if(!telLimpo&&String(telOriginal).trim())telefonesInvalidos++;
+        mapped['Número de Telefone']=telLimpo;
+      }
       if(selectedProps.has('Valor da Mensalidade')&&mapped['Valor da Mensalidade'])mapped['Valor da Mensalidade']=limparMensalidade(mapped['Valor da Mensalidade']);
       if(selectedProps.has('Informações de Negócios')&&alperAtivo){
         // Preenche Informações de Negócios com o valor transformado da coluna "conhecer alternativas"
@@ -762,7 +799,7 @@ function runPipeline(){
     let dupes=valid.length-seen.size;
     setProgress(80);
 
-    let nomesSeparados=0,enriched=0,nomesZerados=0,dados=[];
+    let nomesSeparados=0,enriched=0,nomesZerados=0,telefonesInvalidos=0,dados=[];
     aiCandidates=[];
     let idx=0;
     seen.forEach(({row})=>{
@@ -861,18 +898,19 @@ function runPipeline(){
       'Nomes ambíguos (candidatos a IA)...: '+aiCandidates.length+' (somente estes precisam refinação por IA)\n'+
       '  → Economia: ~'+(dados.length-aiCandidates.length)*60+' tokens (processados localmente, sem custo)\n'+
       '  → Custo IA: ~'+aiCandidates.length*60+' tokens (apenas para ambíguos)\n'+
+      'Telefones inválidos zerados........: '+telefonesInvalidos+'\n'+
       'Linhas na planilha final...........: '+dados.length+'\n'+'='.repeat(60)+
       (corrections.length?'\n\nDomínios corrigidos:\n'+corrections.slice(0,30).map(c=>'  '+c.antes+' -> '+c.depois).join('\n'):'');
 
     setProgress(95);
-    renderResults(dupes,corrections,nomesSeparados,nomesZerados,enriched,emailsExpandidos);
+    renderResults(dupes,corrections,nomesSeparados,nomesZerados,enriched,emailsExpandidos,telefonesInvalidos);
     setProgress(100);
     setTimeout(()=>document.getElementById('progress-bar').classList.add('hidden'),400);
     document.getElementById('btn-run').disabled=false;
   },100);
 }
 
-function renderResults(dupes,corrections,nomesSeparados,nomesZerados,enriched,emailsExpandidos){
+function renderResults(dupes,corrections,nomesSeparados,nomesZerados,enriched,emailsExpandidos,telefonesInvalidos){
   document.getElementById('results').classList.remove('hidden');
   document.getElementById('detect-box').innerHTML=detectInfo;
   // Caixa de IA: só aparece se houver candidatos ambíguos e a prop Nome estiver selecionada
@@ -891,7 +929,8 @@ function renderResults(dupes,corrections,nomesSeparados,nomesZerados,enriched,em
     (emailsExpandidos?'<div class="stat"><div class="stat-label">E-mails expandidos</div><div class="stat-value">'+emailsExpandidos+'</div></div>':'')+
     '<div class="stat"><div class="stat-label">Nomes separados</div><div class="stat-value">'+nomesSeparados+'</div></div>'+
     '<div class="stat"><div class="stat-label">Nomes do e-mail</div><div class="stat-value">'+enriched+'</div></div>'+
-    '<div class="stat"><div class="stat-label">Nomes zerados</div><div class="stat-value">'+nomesZerados+'</div></div>';
+    '<div class="stat"><div class="stat-label">Nomes zerados</div><div class="stat-value">'+nomesZerados+'</div></div>'+
+    (telefonesInvalidos?'<div class="stat"><div class="stat-label">Telefones inválidos zerados</div><div class="stat-value amber">'+telefonesInvalidos+'</div></div>':'');
   document.getElementById('corrections').innerHTML=corrections.length?'⚡ Domínios auto-corrigidos: '+corrections.slice(0,5).map(c=>'<code>'+esc(c.antes)+' → '+esc(c.depois)+'</code>').join(' ')+(corrections.length>5?' e mais '+(corrections.length-5)+'...':''):'';
   renderTable('table-dados',dfDados);renderTable('table-invalidos',dfInvalidos);
   document.getElementById('log-content').textContent=logText;
