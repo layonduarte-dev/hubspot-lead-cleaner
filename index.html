@@ -396,7 +396,11 @@ function limparTelefone(v){
   if(seqCrescente||seqDecrescente)return '';
   // Rejeita se o "número" (sem DDD) tem todos os dígitos iguais (ex: DDD + 99999999)
   if(/^(\d)\1+$/.test(numero))return '';
-  return original.replace(/\s+/g,'');
+  // Formata de forma limpa e SEGURA: nunca retorna com +, =, -, @ no início
+  // (esses caracteres fazem Google Sheets/Excel interpretar a célula como fórmula e gerar #ERROR!)
+  return numero.length===9
+    ? '('+ddd+') '+numero.slice(0,5)+'-'+numero.slice(5)
+    : '('+ddd+') '+numero.slice(0,4)+'-'+numero.slice(4);
 }
 function limparMensalidade(v){
   if(v===null||v===undefined)return '';
@@ -915,7 +919,8 @@ function runPipeline(){
 
     // Ordem final = propriedades selecionadas (na ordem do PROPS) + preservadas
     const order=[...PROPS.filter(p=>selectedProps.has(p)),...allPreserve];
-    dados=dados.map(r=>{let o={};order.forEach(c=>o[c]=r[c]??'');return o;});
+    dados=dados.map(r=>{let o={};order.forEach(c=>o[c]=r[c]??'');return sanitizeLinha(o);});
+    invalidos=invalidos.map(sanitizeLinha);
     let telefonesInvalidos=idxTelefoneInvalido.length;
 
     dfDados=dados;dfInvalidos=invalidos;
@@ -1057,6 +1062,21 @@ function abrirGoogleSheets(){
 }
 function esc2(v){v=String(v);return v.includes(',')||v.includes('"')||v.includes('\n')?'"'+v.replace(/"/g,'""')+'"':v;}
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+/* Zera qualquer valor que comece com =, +, -, @ ou tab — esses caracteres fazem o Google
+   Sheets/Excel interpretar a célula como fórmula, gerando #ERROR! ou #NAME?. Aplicado a TODAS
+   as colunas antes de exibir/exportar, para nunca deixar esse tipo de dado passar. */
+function sanitizeFormula(v){
+  if(v===null||v===undefined)return v;
+  let s=String(v);
+  if(!s)return v;
+  if(/^[=+\-@\t]/.test(s))return '';
+  return v;
+}
+function sanitizeLinha(row){
+  let o={};
+  Object.keys(row).forEach(k=>o[k]=sanitizeFormula(row[k]));
+  return o;
+}
 
 /* ===================== AGENTE DE IA (opcional) ===================== */
 function atualizarProvedor(){
