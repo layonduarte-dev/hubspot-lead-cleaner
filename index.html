@@ -365,7 +365,47 @@ function extractNameFromEmail(email){
   return[null,null,'vazio'];
 }
 
-function limparDoc(v){if(v===null||v===undefined)return '';let s=String(v).replace(/\D/g,'');return s||'';}
+function validarCPF(cpf){
+  if(!cpf||cpf.length!==11)return false;
+  if(/^(\d)\1+$/.test(cpf))return false; // todos os dígitos iguais (00000000000, 11111111111...)
+  let soma=0;
+  for(let i=0;i<9;i++)soma+=parseInt(cpf[i])*(10-i);
+  let resto=soma%11;
+  let dv1=resto<2?0:11-resto;
+  if(dv1!==parseInt(cpf[9]))return false;
+  soma=0;
+  for(let i=0;i<10;i++)soma+=parseInt(cpf[i])*(11-i);
+  resto=soma%11;
+  let dv2=resto<2?0:11-resto;
+  if(dv2!==parseInt(cpf[10]))return false;
+  return true;
+}
+function validarCNPJ(cnpj){
+  if(!cnpj||cnpj.length!==14)return false;
+  if(/^(\d)\1+$/.test(cnpj))return false; // todos os dígitos iguais (00000000000000...)
+  const pesos1=[5,4,3,2,9,8,7,6,5,4,3,2];
+  const pesos2=[6,5,4,3,2,9,8,7,6,5,4,3,2];
+  let soma=0;
+  for(let i=0;i<12;i++)soma+=parseInt(cnpj[i])*pesos1[i];
+  let resto=soma%11;
+  let dv1=resto<2?0:11-resto;
+  if(dv1!==parseInt(cnpj[12]))return false;
+  soma=0;
+  for(let i=0;i<13;i++)soma+=parseInt(cnpj[i])*pesos2[i];
+  resto=soma%11;
+  let dv2=resto<2?0:11-resto;
+  if(dv2!==parseInt(cnpj[13]))return false;
+  return true;
+}
+function limparDoc(v){
+  if(v===null||v===undefined)return '';
+  let s=String(v).replace(/\D/g,'');
+  if(!s)return '';
+  // CPF tem 11 dígitos, CNPJ tem 14 — qualquer outro tamanho já é inválido
+  if(s.length===11)return validarCPF(s)?s:'';
+  if(s.length===14)return validarCNPJ(s)?s:'';
+  return ''; // tamanho errado (não é CPF nem CNPJ) → zera
+}
 function ehColunaDoc(h){let n=norm(h);return n.includes('cpf')||n.includes('cnpj')||n.includes('documento')||n.includes('inscricao')||n==='doc';}
 function limparTelefone(v){
   if(v===null||v===undefined)return '';
@@ -734,7 +774,12 @@ function runPipeline(){
         }
       }
       if(selectedProps.has('Faixa de Colaboradores')&&mapped['Faixa de Colaboradores'])mapped['Faixa de Colaboradores']=mapFaixa(mapped['Faixa de Colaboradores']);
-      if(selectedProps.has('CPF/CNPJ')&&docKey)mapped['CPF/CNPJ']=limparDoc(row[docKey]);
+      if(selectedProps.has('CPF/CNPJ')&&docKey){
+        const docOriginal=row[docKey];
+        const docLimpo=limparDoc(docOriginal);
+        if(!docLimpo&&String(docOriginal||'').replace(/\D/g,''))mapped._docInvalido=docOriginal;
+        mapped['CPF/CNPJ']=docLimpo;
+      }
       if(selectedProps.has('Número de Telefone')&&mapped['Número de Telefone']){
         const telOriginal=mapped['Número de Telefone'];
         const telLimpo=limparTelefone(telOriginal);
@@ -835,11 +880,12 @@ function runPipeline(){
     setProgress(80);
 
     let nomesSeparados=0,enriched=0,nomesZerados=0,dados=[];
-    let idxSeparados=[],idxDoEmail=[],idxZerados=[],idxTelefoneInvalido=[];
+    let idxSeparados=[],idxDoEmail=[],idxZerados=[],idxTelefoneInvalido=[],idxDocInvalido=[];
     aiCandidates=[];
     let idx=0;
     seen.forEach(({row})=>{
       if(row._telInvalido!==undefined){idxTelefoneInvalido.push(idx);}
+      if(row._docInvalido!==undefined){idxDocInvalido.push(idx);}
       let temNome=row['Nome']&&String(row['Nome']).trim();
       let temSob=row['Sobrenome']&&String(row['Sobrenome']).trim();
       let nomeFonte = (temNome&&temSob)?(String(row['Nome']).trim()+' '+String(row['Sobrenome']).trim()):(temNome?String(row['Nome']).trim():'');
@@ -914,6 +960,7 @@ function runPipeline(){
         else{row['Nome']='';row['Sobrenome']='';if(status==='ambiguo')aiCandidates.push({idx,email:row['Email'],nomeAtual:'',sobrenomeAtual:''});}
       }
       delete row._telInvalido;
+      delete row._docInvalido;
       dados.push(row);idx++;
     });
 
@@ -922,6 +969,7 @@ function runPipeline(){
     dados=dados.map(r=>{let o={};order.forEach(c=>o[c]=r[c]??'');return sanitizeLinha(o);});
     invalidos=invalidos.map(sanitizeLinha);
     let telefonesInvalidos=idxTelefoneInvalido.length;
+    let docsInvalidos=idxDocInvalido.length;
 
     dfDados=dados;dfInvalidos=invalidos;
 
@@ -934,7 +982,8 @@ function runPipeline(){
       separados:{titulo:'✂️ Nomes separados em Nome + Sobrenome',linhas:idxSeparados.map(i=>dados[i])},
       doEmail:{titulo:'📧 Nomes extraídos a partir do e-mail',linhas:idxDoEmail.map(i=>dados[i])},
       zerados:{titulo:'🚫 Nomes não-pessoais zerados (ficaram em branco)',linhas:idxZerados.map(i=>dados[i])},
-      telInvalidos:{titulo:'📵 Telefones inválidos zerados',linhas:idxTelefoneInvalido.map(i=>dados[i])}
+      telInvalidos:{titulo:'📵 Telefones inválidos zerados',linhas:idxTelefoneInvalido.map(i=>dados[i])},
+      docInvalidos:{titulo:'🪪 CPF/CNPJ inválidos zerados (dígito verificador não confere)',linhas:idxDocInvalido.map(i=>dados[i])}
     };
 
     const now=new Date();
@@ -952,18 +1001,19 @@ function runPipeline(){
       '  → Economia: ~'+(dados.length-aiCandidates.length)*60+' tokens (processados localmente, sem custo)\n'+
       '  → Custo IA: ~'+aiCandidates.length*60+' tokens (apenas para ambíguos)\n'+
       'Telefones inválidos zerados........: '+telefonesInvalidos+'\n'+
+      'CPF/CNPJ inválidos zerados.........: '+docsInvalidos+' (dígito verificador não confere)\n'+
       'Linhas na planilha final...........: '+dados.length+'\n'+'='.repeat(60)+
       (corrections.length?'\n\nDomínios corrigidos:\n'+corrections.slice(0,30).map(c=>'  '+c.antes+' -> '+c.depois).join('\n'):'');
 
     setProgress(95);
-    renderResults(dupes,corrections,nomesSeparados,nomesZerados,enriched,emailsExpandidos,telefonesInvalidos);
+    renderResults(dupes,corrections,nomesSeparados,nomesZerados,enriched,emailsExpandidos,telefonesInvalidos,docsInvalidos);
     setProgress(100);
     setTimeout(()=>document.getElementById('progress-bar').classList.add('hidden'),400);
     document.getElementById('btn-run').disabled=false;
   },100);
 }
 
-function renderResults(dupes,corrections,nomesSeparados,nomesZerados,enriched,emailsExpandidos,telefonesInvalidos){
+function renderResults(dupes,corrections,nomesSeparados,nomesZerados,enriched,emailsExpandidos,telefonesInvalidos,docsInvalidos){
   document.getElementById('results').classList.remove('hidden');
   document.getElementById('detect-box').innerHTML=detectInfo;
   // Caixa de IA: só aparece se houver candidatos ambíguos e a prop Nome estiver selecionada
@@ -983,7 +1033,8 @@ function renderResults(dupes,corrections,nomesSeparados,nomesZerados,enriched,em
     '<div class="stat stat-click" onclick="showStatDetail(\'separados\')"><div class="stat-label">Nomes separados</div><div class="stat-value">'+nomesSeparados+'</div></div>'+
     '<div class="stat stat-click" onclick="showStatDetail(\'doEmail\')"><div class="stat-label">Nomes do e-mail</div><div class="stat-value">'+enriched+'</div></div>'+
     '<div class="stat stat-click" onclick="showStatDetail(\'zerados\')"><div class="stat-label">Nomes zerados</div><div class="stat-value">'+nomesZerados+'</div></div>'+
-    (telefonesInvalidos?'<div class="stat stat-click" onclick="showStatDetail(\'telInvalidos\')"><div class="stat-label">Telefones inválidos zerados</div><div class="stat-value amber">'+telefonesInvalidos+'</div></div>':'');
+    (telefonesInvalidos?'<div class="stat stat-click" onclick="showStatDetail(\'telInvalidos\')"><div class="stat-label">Telefones inválidos zerados</div><div class="stat-value amber">'+telefonesInvalidos+'</div></div>':'')+
+    (docsInvalidos?'<div class="stat stat-click" onclick="showStatDetail(\'docInvalidos\')"><div class="stat-label">CPF/CNPJ inválidos zerados</div><div class="stat-value amber">'+docsInvalidos+'</div></div>':'');
   document.getElementById('corrections').innerHTML=corrections.length?'⚡ Domínios auto-corrigidos: '+corrections.slice(0,5).map(c=>'<code>'+esc(c.antes)+' → '+esc(c.depois)+'</code>').join(' ')+(corrections.length>5?' e mais '+(corrections.length-5)+'...':''):'';
   renderTable('table-dados',dfDados);renderTable('table-invalidos',dfInvalidos);
   document.getElementById('log-content').textContent=logText;
