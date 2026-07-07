@@ -48,6 +48,16 @@
   .progress-fill{height:100%;background:var(--accent);width:0;transition:width .3s}
   .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:1.2rem}
   .stat{background:var(--surface-2);border-radius:10px;padding:.9rem 1.1rem}
+  .stat-click{cursor:pointer;transition:.15s;border:1px solid transparent}
+  .stat-click:hover{background:var(--border);border-color:var(--border-2);transform:translateY(-1px)}
+  .stat-click:after{content:"clique para ver ↗";display:block;font-size:10px;color:var(--text-3);margin-top:4px;opacity:.7}
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:1000;padding:1.5rem}
+  .modal-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:960px;width:100%;max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:1.1rem 1.4rem;border-bottom:1px solid var(--border)}
+  .modal-head h3{font-size:16px;font-weight:600}
+  .modal-close{background:none;border:none;font-size:22px;color:var(--text-2);cursor:pointer;line-height:1;padding:2px 6px;border-radius:6px}
+  .modal-close:hover{background:var(--surface-2);color:var(--text)}
+  .modal-body{overflow:auto;padding:1rem 1.4rem 1.4rem}
   .stat-label{font-size:12px;color:var(--text-2);margin-bottom:5px}
   .stat-value{font-size:24px;font-weight:600}
   .stat-value.green{color:var(--green)}.stat-value.amber{color:var(--amber)}.stat-value.red{color:var(--red)}
@@ -187,6 +197,18 @@
   </div>
 
   <div class="footer">HubSpot Lead Cleaner v4 — aplicação standalone</div>
+</div>
+
+<div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="stat-modal-title"></h3>
+      <button class="modal-close" onclick="closeStatDetail()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="table-wrap" id="stat-modal-table"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -500,6 +522,7 @@ function isAreaColumn(h){let n=norm(h);return n.includes('atuacao')||n.includes(
 const PROPS=['Nome','Sobrenome','Email','Número de Telefone','CPF/CNPJ','Nome da Empresa','Cargo','Cargo RH','Faixa de Colaboradores','Valor da Mensalidade','Cliente Sólides/Tangerino?','Observação','Informações de Negócios','Outros'];
 const COMPUTED=new Set(['Nome','Sobrenome','Cargo','Cargo RH','Faixa de Colaboradores','CPF/CNPJ']);
 let rawData=[], preserveCols=[], dfDados=[], dfInvalidos=[], logText='', detectInfo='';
+let statDetailData={}; // {chave: {titulo, linhas}} — usado pelos cards clicáveis de estatística
 let selectedProps=new Set(['Nome','Sobrenome','Email']);
 let alperAtivo=false;
 let aiCandidates=[]; // {idx, email, nomeAtual, sobrenomeAtual}
@@ -711,7 +734,7 @@ function runPipeline(){
       if(selectedProps.has('Número de Telefone')&&mapped['Número de Telefone']){
         const telOriginal=mapped['Número de Telefone'];
         const telLimpo=limparTelefone(telOriginal);
-        if(!telLimpo&&String(telOriginal).trim())telefonesInvalidos++;
+        if(!telLimpo&&String(telOriginal).trim())mapped._telInvalido=telOriginal;
         mapped['Número de Telefone']=telLimpo;
       }
       if(selectedProps.has('Valor da Mensalidade')&&mapped['Valor da Mensalidade'])mapped['Valor da Mensalidade']=limparMensalidade(mapped['Valor da Mensalidade']);
@@ -794,15 +817,25 @@ function runPipeline(){
     });
     setProgress(65);
 
-    let seen=new Map();
-    valid.forEach(r=>{let e=r['Email'];let comp=Object.values(r).filter(v=>v&&String(v).trim()).length;if(!seen.has(e)||comp>seen.get(e).comp)seen.set(e,{row:r,comp});});
-    let dupes=valid.length-seen.size;
+    let seen=new Map(),gruposEmail=new Map();
+    valid.forEach(r=>{let e=r['Email'];if(!gruposEmail.has(e))gruposEmail.set(e,[]);gruposEmail.get(e).push(r);});
+    let duplicatasRemovidas=[];
+    gruposEmail.forEach((rows,e)=>{
+      if(rows.length===1){seen.set(e,{row:rows[0]});return;}
+      let melhor=rows[0],melhorComp=-1;
+      rows.forEach(r=>{let comp=Object.values(r).filter(v=>v&&String(v).trim()).length;if(comp>melhorComp){melhorComp=comp;melhor=r;}});
+      seen.set(e,{row:melhor});
+      rows.forEach(r=>{if(r!==melhor)duplicatasRemovidas.push(r);});
+    });
+    let dupes=duplicatasRemovidas.length;
     setProgress(80);
 
-    let nomesSeparados=0,enriched=0,nomesZerados=0,telefonesInvalidos=0,dados=[];
+    let nomesSeparados=0,enriched=0,nomesZerados=0,dados=[];
+    let idxSeparados=[],idxDoEmail=[],idxZerados=[],idxTelefoneInvalido=[];
     aiCandidates=[];
     let idx=0;
     seen.forEach(({row})=>{
+      if(row._telInvalido!==undefined){idxTelefoneInvalido.push(idx);}
       let temNome=row['Nome']&&String(row['Nome']).trim();
       let temSob=row['Sobrenome']&&String(row['Sobrenome']).trim();
       let nomeFonte = (temNome&&temSob)?(String(row['Nome']).trim()+' '+String(row['Sobrenome']).trim()):(temNome?String(row['Nome']).trim():'');
@@ -864,26 +897,41 @@ function runPipeline(){
       if(nomeFonte){
         let[n,s]=splitNome(nomeFonte);
         if(n){
-          row['Nome']=n;row['Sobrenome']=s||'';if(s)nomesSeparados++;
+          row['Nome']=n;row['Sobrenome']=s||'';if(s){nomesSeparados++;idxSeparados.push(idx);}
           if(nomeSuspeito(n,s,row['Email']))aiCandidates.push({idx,email:row['Email'],nomeAtual:n,sobrenomeAtual:s||''});
         }
-        else{row['Nome']='';row['Sobrenome']='';nomesZerados++;}
+        else{row['Nome']='';row['Sobrenome']='';nomesZerados++;idxZerados.push(idx);}
       }else{
         let[n,s,status]=extractNameFromEmail(row['Email']);
         if(n){
-          row['Nome']=n;row['Sobrenome']=s||'';enriched++;
+          row['Nome']=n;row['Sobrenome']=s||'';enriched++;idxDoEmail.push(idx);
           if(nomeSuspeito(n,s,row['Email']))aiCandidates.push({idx,email:row['Email'],nomeAtual:n,sobrenomeAtual:s||''});
         }
         else{row['Nome']='';row['Sobrenome']='';if(status==='ambiguo')aiCandidates.push({idx,email:row['Email'],nomeAtual:'',sobrenomeAtual:''});}
       }
+      delete row._telInvalido;
       dados.push(row);idx++;
     });
 
     // Ordem final = propriedades selecionadas (na ordem do PROPS) + preservadas
     const order=[...PROPS.filter(p=>selectedProps.has(p)),...allPreserve];
     dados=dados.map(r=>{let o={};order.forEach(c=>o[c]=r[c]??'');return o;});
+    let telefonesInvalidos=idxTelefoneInvalido.length;
 
     dfDados=dados;dfInvalidos=invalidos;
+
+    // Popula dados para os cards de estatística clicáveis
+    statDetailData={
+      entrada:{titulo:'📥 Entrada — linhas originais recebidas',linhas:rawData},
+      resultado:{titulo:'✅ Resultado final — linhas limpas para exportar',linhas:dados},
+      invalidos:{titulo:'❌ E-mails inválidos/ausentes',linhas:invalidos.map(r=>{let o={...r};delete o._motivo;return {...o,'Motivo':r._motivo||''};})},
+      duplicatas:{titulo:'⚠️ Duplicatas removidas (mesmo e-mail, mantido o registro mais completo)',linhas:duplicatasRemovidas},
+      separados:{titulo:'✂️ Nomes separados em Nome + Sobrenome',linhas:idxSeparados.map(i=>dados[i])},
+      doEmail:{titulo:'📧 Nomes extraídos a partir do e-mail',linhas:idxDoEmail.map(i=>dados[i])},
+      zerados:{titulo:'🚫 Nomes não-pessoais zerados (ficaram em branco)',linhas:idxZerados.map(i=>dados[i])},
+      telInvalidos:{titulo:'📵 Telefones inválidos zerados',linhas:idxTelefoneInvalido.map(i=>dados[i])}
+    };
+
     const now=new Date();
     logText='RELATÓRIO DE HIGIENIZAÇÃO — HubSpot Lead Cleaner v7 (Refino Inteligente)\n'+
       'Gerado em: '+now.toLocaleString('pt-BR')+'\n'+'='.repeat(60)+'\n'+
@@ -922,15 +970,15 @@ function renderResults(dupes,corrections,nomesSeparados,nomesZerados,enriched,em
   }else aiBox.classList.add('hidden');
 
   document.getElementById('stats-grid').innerHTML=
-    '<div class="stat"><div class="stat-label">Entrada</div><div class="stat-value">'+rawData.length+'</div></div>'+
-    '<div class="stat"><div class="stat-label">Resultado final</div><div class="stat-value green">'+dfDados.length+'</div></div>'+
-    '<div class="stat"><div class="stat-label">Inválidos</div><div class="stat-value red">'+dfInvalidos.length+'</div></div>'+
-    '<div class="stat"><div class="stat-label">Duplicatas</div><div class="stat-value amber">'+dupes+'</div></div>'+
+    '<div class="stat stat-click" onclick="showStatDetail(\'entrada\')"><div class="stat-label">Entrada</div><div class="stat-value">'+rawData.length+'</div></div>'+
+    '<div class="stat stat-click" onclick="showStatDetail(\'resultado\')"><div class="stat-label">Resultado final</div><div class="stat-value green">'+dfDados.length+'</div></div>'+
+    '<div class="stat stat-click" onclick="showStatDetail(\'invalidos\')"><div class="stat-label">Inválidos</div><div class="stat-value red">'+dfInvalidos.length+'</div></div>'+
+    '<div class="stat stat-click" onclick="showStatDetail(\'duplicatas\')"><div class="stat-label">Duplicatas</div><div class="stat-value amber">'+dupes+'</div></div>'+
     (emailsExpandidos?'<div class="stat"><div class="stat-label">E-mails expandidos</div><div class="stat-value">'+emailsExpandidos+'</div></div>':'')+
-    '<div class="stat"><div class="stat-label">Nomes separados</div><div class="stat-value">'+nomesSeparados+'</div></div>'+
-    '<div class="stat"><div class="stat-label">Nomes do e-mail</div><div class="stat-value">'+enriched+'</div></div>'+
-    '<div class="stat"><div class="stat-label">Nomes zerados</div><div class="stat-value">'+nomesZerados+'</div></div>'+
-    (telefonesInvalidos?'<div class="stat"><div class="stat-label">Telefones inválidos zerados</div><div class="stat-value amber">'+telefonesInvalidos+'</div></div>':'');
+    '<div class="stat stat-click" onclick="showStatDetail(\'separados\')"><div class="stat-label">Nomes separados</div><div class="stat-value">'+nomesSeparados+'</div></div>'+
+    '<div class="stat stat-click" onclick="showStatDetail(\'doEmail\')"><div class="stat-label">Nomes do e-mail</div><div class="stat-value">'+enriched+'</div></div>'+
+    '<div class="stat stat-click" onclick="showStatDetail(\'zerados\')"><div class="stat-label">Nomes zerados</div><div class="stat-value">'+nomesZerados+'</div></div>'+
+    (telefonesInvalidos?'<div class="stat stat-click" onclick="showStatDetail(\'telInvalidos\')"><div class="stat-label">Telefones inválidos zerados</div><div class="stat-value amber">'+telefonesInvalidos+'</div></div>':'');
   document.getElementById('corrections').innerHTML=corrections.length?'⚡ Domínios auto-corrigidos: '+corrections.slice(0,5).map(c=>'<code>'+esc(c.antes)+' → '+esc(c.depois)+'</code>').join(' ')+(corrections.length>5?' e mais '+(corrections.length-5)+'...':''):'';
   renderTable('table-dados',dfDados);renderTable('table-invalidos',dfInvalidos);
   document.getElementById('log-content').textContent=logText;
@@ -944,6 +992,14 @@ function renderTable(id,data){
   if(data.length>200)html+='<tr><td colspan="'+cols.length+'" style="text-align:center;color:var(--text-3);padding:.7rem">... e mais '+(data.length-200)+' linhas (incluídas no CSV baixado)</td></tr>';
   html+='</tbody></table>';document.getElementById(id).innerHTML=html;
 }
+function showStatDetail(chave){
+  const info=statDetailData[chave];
+  if(!info)return;
+  document.getElementById('stat-modal-title').textContent=info.titulo+' ('+info.linhas.length+')';
+  renderTable('stat-modal-table',info.linhas);
+  document.getElementById('stat-modal').classList.remove('hidden');
+}
+function closeStatDetail(){document.getElementById('stat-modal').classList.add('hidden');}
 function showTab(name){['dados','invalidos','log'].forEach(t=>{document.getElementById('pane-'+t).classList.toggle('hidden',t!==name);document.getElementById('tab-'+t).classList.toggle('active',t===name);});}
 function downloadCSV(type){
   let data=type==='dados'?dfDados:dfInvalidos;if(!data.length)return;
