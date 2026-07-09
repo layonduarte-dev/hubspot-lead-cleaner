@@ -91,7 +91,8 @@
   .colmap-ex{font-size:11px;color:var(--text-3)}
   .colmap-sel{flex:0 0 200px;height:38px;padding:0 10px;font-size:13px;background:var(--surface);border:1px solid var(--border-2);border-radius:8px;color:var(--text)}
   .colmap-sel:focus{outline:none;border-color:var(--text-3)}
-  .colmap-outros-sel{flex:0 0 180px;height:38px;padding:0 10px;font-size:13px;background:var(--surface);border:1px solid var(--border-2);border-radius:8px;color:var(--text)}
+  .colmap-outros-sel{flex:0 0 180px;height:38px;padding:0 10px;font-size:13px;background:var(--surface);border:1px solid var(--border-2);border-radius:8px;color:var(--text);display:none}
+  #colmap-list.outros-active .colmap-outros-sel{display:block}
   .colmap-outros-sel:focus{outline:none;border-color:var(--text-3)}
   .colmap-outros-sel.active{border-color:#3d8b70;background:#0d1f18}
   .footer{text-align:center;font-size:12px;color:var(--text-3);margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border)}
@@ -199,7 +200,7 @@
     </div>
   </div>
 
-  <div class="footer">HubSpot Lead Cleaner v7.7 — aplicação standalone</div>
+  <div class="footer">HubSpot Lead Cleaner v7.8 — aplicação standalone</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -612,6 +613,7 @@ function toggleProp(el){
   document.getElementById('obs-box').classList.toggle('hidden',!selectedProps.has('Observação'));
   document.getElementById('alper-chip-wrap').style.display=selectedProps.has('Observação')?'flex':'none';
   if(!selectedProps.has('Observação')&&alperAtivo){alperAtivo=false;document.getElementById('alper-chip').classList.remove('on');}
+  syncOutrosColVisibility();
 }
 renderProps();
 
@@ -656,6 +658,7 @@ function autoSelectProps(){
   document.getElementById('alper-chip-wrap').style.display=selectedProps.has('Observação')?'flex':'none';
   if(!selectedProps.has('Observação')&&alperAtivo){alperAtivo=false;document.getElementById('alper-chip').classList.remove('on');}
   renderColMap();
+  syncOutrosColVisibility();
 }
 /* Painel "Mais informações": lista cada cabeçalho com dropdown de propriedade */
 function renderColMap(){
@@ -702,6 +705,21 @@ function onColMapChange(){
     document.getElementById('outros-box').classList.remove('hidden');
   }
   renderProps();
+  syncOutrosColVisibility();
+}
+/* Sincroniza a coluna de "Juntar em Outros" no painel de mapeamento com o estado do chip Outros.
+   Se Outros estiver desativado, também reseta todos os slots (evita mapeamentos órfãos). */
+function syncOutrosColVisibility(){
+  const list=document.getElementById('colmap-list');
+  if(!list)return;
+  const ativo=selectedProps.has('Outros');
+  list.classList.toggle('outros-active',ativo);
+  if(!ativo){
+    list.querySelectorAll('.colmap-outros-sel').forEach(sel=>{
+      sel.value='(nenhum)';
+      sel.classList.remove('active');
+    });
+  }
 }
 function parseCSV(text){
   text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
