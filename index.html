@@ -89,8 +89,11 @@
   .colmap-h{flex:1;font-size:14px;display:flex;flex-direction:column;gap:2px;min-width:0}
   .colmap-h strong{color:var(--text);word-break:break-word}
   .colmap-ex{font-size:11px;color:var(--text-3)}
-  .colmap-sel{flex:0 0 220px;height:38px;padding:0 10px;font-size:13px;background:var(--surface);border:1px solid var(--border-2);border-radius:8px;color:var(--text)}
+  .colmap-sel{flex:0 0 200px;height:38px;padding:0 10px;font-size:13px;background:var(--surface);border:1px solid var(--border-2);border-radius:8px;color:var(--text)}
   .colmap-sel:focus{outline:none;border-color:var(--text-3)}
+  .colmap-outros-sel{flex:0 0 180px;height:38px;padding:0 10px;font-size:13px;background:var(--surface);border:1px solid var(--border-2);border-radius:8px;color:var(--text)}
+  .colmap-outros-sel:focus{outline:none;border-color:var(--text-3)}
+  .colmap-outros-sel.active{border-color:#3d8b70;background:#0d1f18}
   .footer{text-align:center;font-size:12px;color:var(--text-3);margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border)}
 </style>
 </head>
@@ -127,7 +130,7 @@
       <textarea id="obs-text" placeholder="Texto que será preenchido em todas as linhas da coluna 'Observação'. Ex: Captado na Feira RH 2026"></textarea>
     </div>
     <div id="outros-box" class="hidden">
-      <textarea id="outros-text" placeholder="Explique o que a propriedade 'Outros' deve conter. Ex: preencher todas as linhas com 'Origem: Feira RH 2026'"></textarea>
+      <textarea id="outros-text" placeholder="Texto para a coluna Outros. Use () como marcadores — cada () será preenchido na ordem pelos valores das colunas marcadas como 'Juntar em Outros 1', 'Juntar em Outros 2', etc. Ex: Este cliente possui o produto (), sua faixa é ()."></textarea>
     </div>
   </div>
 
@@ -659,24 +662,45 @@ function renderColMap(){
   if(!rawData.length){document.getElementById('colmap-card').style.display='none';return;}
   const headers=Object.keys(rawData[0]);
   const auto=buildHeaderMap(headers);
-  const opcoes=['(ignorar)','(preservar)','(juntar em Outros)',...PROPS];
+  const opcoes=['(ignorar)','(preservar)',...PROPS];
+  const opcoesOutros=['(nenhum)','Juntar em Outros 1','Juntar em Outros 2','Juntar em Outros 3','Juntar em Outros 4'];
   const list=document.getElementById('colmap-list');
   list.innerHTML=headers.map(h=>{
     let sel=auto[h]||'(ignorar)';
+    // compat: mapeamento antigo salvo como (juntar em Outros) vira (ignorar) no dropdown principal
+    if(sel==='(juntar em Outros)')sel='(ignorar)';
     let amostra=(rawData.find(r=>r[h]&&String(r[h]).trim())||{})[h]||'';
     let optsHtml=opcoes.map(o=>'<option value="'+esc(o)+'"'+(o===sel?' selected':'')+'>'+esc(o)+'</option>').join('');
+    let optsOutros=opcoesOutros.map(o=>'<option value="'+esc(o)+'">'+esc(o)+'</option>').join('');
     return '<div class="colmap-row">'+
       '<div class="colmap-h"><strong>'+esc(h)+'</strong>'+(amostra?'<span class="colmap-ex">ex: '+esc(String(amostra).slice(0,40))+'</span>':'')+'</div>'+
       '<select class="colmap-sel" data-h="'+esc(h)+'" onchange="onColMapChange()">'+optsHtml+'</select>'+
+      '<select class="colmap-outros-sel" data-h="'+esc(h)+'" onchange="onColMapChange()">'+optsOutros+'</select>'+
       '</div>';
   }).join('');
   document.getElementById('colmap-card').style.display='block';
 }
 function getManualMap(){let m={};document.querySelectorAll('.colmap-sel').forEach(sel=>{m[sel.getAttribute('data-h')]=sel.value;});return m;}
+/* Lê os dropdowns de "Juntar em Outros" e retorna { 1:header, 2:header, ... } apenas com slots preenchidos */
+function getJuntarSlots(){
+  const slots={};
+  document.querySelectorAll('.colmap-outros-sel').forEach(sel=>{
+    const v=sel.value||'';
+    const m=v.match(/^Juntar em Outros (\d)$/);
+    sel.classList.toggle('active',!!m);
+    if(m){slots[parseInt(m[1],10)]=sel.getAttribute('data-h');}
+  });
+  return slots;
+}
 /* Ao mudar um mapeamento, marca a propriedade correspondente no seletor */
 function onColMapChange(){
   const m=getManualMap();
   Object.values(m).forEach(v=>{if(PROPS.includes(v)){selectedProps.add(v);if(v==='Nome')selectedProps.add('Sobrenome');}});
+  const slots=getJuntarSlots();
+  if(Object.keys(slots).length){
+    selectedProps.add('Outros');
+    document.getElementById('outros-box').classList.remove('hidden');
+  }
   renderProps();
 }
 function parseCSV(text){
@@ -707,8 +731,9 @@ function runPipeline(){
     const allPreserve=[...new Set([...preserveCols,...preserveFromMap])];
     // headerMap só com targets reais (ignora (preservar)/(ignorar))
     const headerMap={};
-    const juntarCols=headers.filter(h=>fullMap[h]==='(juntar em Outros)');
-    if(juntarCols.length){selectedProps.add('Outros');document.getElementById('outros-box').classList.remove('hidden');}
+    const juntarSlots=getJuntarSlots(); // { 1: header, 2: header, ... }
+    const anySlot=Object.keys(juntarSlots).length>0;
+    if(anySlot){selectedProps.add('Outros');document.getElementById('outros-box').classList.remove('hidden');}
     headers.forEach(h=>{let t=fullMap[h];if(t&&t!=='(preservar)'&&t!=='(ignorar)'&&t!=='(juntar em Outros)'&&!allPreserve.includes(h))headerMap[h]=t;});
 
     let emailKey=Object.keys(headerMap).find(k=>headerMap[k]==='Email')||headers.find(h=>norm(h).includes('mail'));
@@ -798,13 +823,23 @@ function runPipeline(){
         }
       }
       if(selectedProps.has('Outros')){
-        const partes=[];
-        if(outrosText)partes.push(outrosText);
-        juntarCols.forEach(col=>{
-          const val=String(row[col]||'').trim();
-          if(val&&val.toLowerCase()!=='nan'&&val.toLowerCase()!=='null')partes.push(col+': '+val);
-        });
-        if(partes.length)mapped['Outros']=partes.join('\n');
+        if(anySlot && outrosText){
+          // Substitui cada () sequencialmente pelo valor da coluna do slot correspondente.
+          // 1º () = slot 1, 2º () = slot 2, ... Se o slot não estiver preenchido ou a linha
+          // não tiver valor, mantém () vazio para o usuário conseguir ver a lacuna.
+          let idx=0;
+          const filled=outrosText.replace(/\(\)/g,()=>{
+            idx++;
+            const col=juntarSlots[idx];
+            if(!col)return '()';
+            const val=String(row[col]||'').trim();
+            if(!val||val.toLowerCase()==='nan'||val.toLowerCase()==='null')return '()';
+            return '('+val+')';
+          });
+          if(filled)mapped['Outros']=filled;
+        } else if(outrosText){
+          mapped['Outros']=outrosText;
+        }
       }
       if(selectedProps.has('Observação')){
         if(alperAtivo){
