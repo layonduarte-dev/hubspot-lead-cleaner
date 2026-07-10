@@ -4,106 +4,191 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HubSpot Lead Cleaner</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNyIgZmlsbD0iIzFhMWExOCIvPjxyZWN0IHg9IjYiIHk9IjgiIHdpZHRoPSIxNCIgaGVpZ2h0PSIzIiByeD0iMSIgZmlsbD0iIzVEQ0FBNSIvPjxyZWN0IHg9IjYiIHk9IjEzIiB3aWR0aD0iMTQiIGhlaWdodD0iMyIgcng9IjEiIGZpbGw9IiM1RENBQTUiIG9wYWNpdHk9Ii42Ii8+PHJlY3QgeD0iNiIgeT0iMTgiIHdpZHRoPSIxNCIgaGVpZ2h0PSIzIiByeD0iMSIgZmlsbD0iIzVEQ0FBNSIgb3BhY2l0eT0iLjM1Ii8+PHBhdGggZD0iTTI0IDZsMS4yIDIuOEwyOCAxMGwtMi44IDEuMkwyNCAxNGwtMS4yLTIuOEwyMCAxMGwyLjgtMS4yeiIgZmlsbD0iI0VGOUYyNyIvPjxwYXRoIGQ9Ik0yMiAyMGwuNyAxLjYgMS42LjctMS42LjctLjcgMS42LS43LTEuNi0xLjYtLjcgMS42LS43eiIgZmlsbD0iI0VGOUYyNyIgb3BhY2l0eT0iLjYiLz48cGF0aCBkPSJNMTAgMjRsMiAyIDQtNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNURDQUE1IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg==">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjOGI1Y2Y2Ii8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjNmQyOGQ5Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNyIgZmlsbD0iIzBkMGExNyIvPjxyZWN0IHg9IjYiIHk9IjgiIHdpZHRoPSIxNCIgaGVpZ2h0PSIzIiByeD0iMSIgZmlsbD0idXJsKCNnKSIvPjxyZWN0IHg9IjYiIHk9IjEzIiB3aWR0aD0iMTQiIGhlaWdodD0iMyIgcng9IjEiIGZpbGw9InVybCgjZykiIG9wYWNpdHk9Ii42Ii8+PHJlY3QgeD0iNiIgeT0iMTgiIHdpZHRoPSIxNCIgaGVpZ2h0PSIzIiByeD0iMSIgZmlsbD0idXJsKCNnKSIgb3BhY2l0eT0iLjM1Ii8+PHBhdGggZD0iTTI0IDZsMS4yIDIuOEwyOCAxMGwtMi44IDEuMkwyNCAxNGwtMS4yLTIuOEwyMCAxMGwyLjgtMS4yeiIgZmlsbD0iI2M0YjVmZCIvPjxwYXRoIGQ9Ik0yMiAyMGwuNyAxLjYgMS42LjctMS42LjctLjcgMS42LS43LTEuNi0xLjYtLjcgMS42LS43eiIgZmlsbD0iI2M0YjVmZCIgb3BhY2l0eT0iLjYiLz48cGF0aCBkPSJNMTAgMjRsMiAyIDQtNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjYTc4YmZhIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg==">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root{--bg:#faf9f5;--surface:#ffffff;--surface-2:#f1efe8;--border:#e3e1d8;--border-2:#d3d1c7;--text:#1a1a18;--text-2:#5f5e5a;--text-3:#888780;--accent:#1a1a18;--green:#1D9E75;--amber:#BA7517;--red:#A32D2D;--blue:#185FA5;}
-  @media (prefers-color-scheme:dark){:root{--bg:#1f1e1b;--surface:#2a2925;--surface-2:#34322d;--border:#3d3b35;--border-2:#4a4842;--text:#f0efe9;--text-2:#b4b2a9;--text-3:#888780;--accent:#f0efe9;--green:#5DCAA5;--amber:#EF9F27;--red:#F09595;--blue:#85B7EB;}}
+  :root{
+    --bg:#0a0812;--bg-glow:#150f26;--surface:#141021;--surface-2:#1d1731;--surface-3:#262040;
+    --border:#292148;--border-2:#3b3163;--text:#EDE9FA;--text-2:#A79DCB;--text-3:#6F6596;
+    --accent:#8B5CF6;--accent-2:#6D28D9;--accent-soft:rgba(139,92,246,.14);--accent-glow:rgba(139,92,246,.35);
+    --green:#3DD9A4;--amber:#F5B454;--red:#F27D7D;--blue:#7EB4F2;
+    --bg-card:#141021;--text-1:#EDE9FA;
+    --radius:16px;--radius-s:10px;
+    --shadow:0 4px 24px rgba(0,0,0,.45);
+    --shadow-accent:0 6px 28px rgba(109,40,217,.35);
+  }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;padding:2rem 1rem;min-height:100vh}
-  .app{max-width:960px;margin:0 auto}
-  .header h1{font-size:26px;font-weight:600;display:flex;align-items:center;gap:10px}
-  .header p{font-size:15px;color:var(--text-2);margin-top:6px}
-  .badge-offline{display:inline-flex;align-items:center;gap:6px;font-size:12px;background:var(--surface-2);color:var(--text-2);padding:4px 12px;border-radius:20px;margin-top:10px}
-  .badge-offline::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--green)}
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.4rem;margin-bottom:1rem;margin-top:1.2rem}
-  .card h2{font-size:16px;font-weight:600;margin-bottom:.5rem;display:flex;align-items:center;gap:8px}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--text);line-height:1.6;padding:2.2rem 1rem 3rem;min-height:100vh;
+    background-image:radial-gradient(1100px 500px at 50% -180px,rgba(109,40,217,.22),transparent 65%),radial-gradient(700px 400px at 90% 15%,rgba(139,92,246,.07),transparent 60%);
+    background-attachment:fixed;
+  }
+  ::selection{background:var(--accent);color:#fff}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:6px;border:2px solid var(--bg)}
+  ::-webkit-scrollbar-thumb:hover{background:var(--accent-2)}
+  .app{max-width:980px;margin:0 auto}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  @keyframes pop{0%{transform:scale(.92);opacity:0}100%{transform:scale(1);opacity:1}}
+  @keyframes shimmer{0%{background-position:-450px 0}100%{background-position:450px 0}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  /* ---------- header ---------- */
+  .header{display:flex;align-items:flex-start;gap:16px;animation:fadeUp .5s ease both}
+  .logo-mark{flex:0 0 auto;width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--accent) 0%,var(--accent-2) 100%);display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:var(--shadow-accent)}
+  .header h1{font-size:27px;font-weight:700;letter-spacing:-.02em;background:linear-gradient(90deg,#fff 20%,#c4b5fd 90%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .header p{font-size:14.5px;color:var(--text-2);margin-top:3px}
+  .badge-offline{display:inline-flex;align-items:center;gap:7px;font-size:12px;background:var(--surface);color:var(--text-2);padding:5px 13px;border-radius:20px;margin-top:10px;border:1px solid var(--border)}
+  .badge-offline::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2.4s ease infinite}
+  /* ---------- cards ---------- */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1.05rem;margin-top:1.2rem;box-shadow:var(--shadow);animation:fadeUp .5s ease both;transition:border-color .2s}
+  .card:hover{border-color:var(--border-2)}
+  .card h2{font-size:15.5px;font-weight:600;margin-bottom:.45rem;display:flex;align-items:center;gap:9px;letter-spacing:-.01em}
   .card .sub{font-size:13px;color:var(--text-2);margin-bottom:1rem}
-  .drop-zone{border:2px dashed var(--border-2);border-radius:10px;padding:2.2rem;text-align:center;cursor:pointer;transition:.15s}
-  .drop-zone:hover,.drop-zone.dragover{background:var(--surface-2);border-color:var(--text-3)}
-  .drop-zone .ico{font-size:36px;display:block;margin-bottom:.6rem;opacity:.5}
+  /* ---------- drop zone ---------- */
+  .drop-zone{border:2px dashed var(--border-2);border-radius:12px;padding:2.4rem 1.5rem;text-align:center;cursor:pointer;transition:.2s;background:rgba(139,92,246,.03)}
+  .drop-zone:hover,.drop-zone.dragover{background:var(--accent-soft);border-color:var(--accent);box-shadow:inset 0 0 40px rgba(139,92,246,.08)}
+  .drop-zone.dragover{transform:scale(1.008)}
+  .drop-zone .ico{font-size:38px;display:block;margin-bottom:.6rem;opacity:.75;filter:drop-shadow(0 4px 14px rgba(139,92,246,.4))}
   .drop-zone p{font-size:15px;color:var(--text-2)}
   .drop-zone small{font-size:12px;color:var(--text-3)}
-  input[type=text],textarea{width:100%;padding:10px 12px;font-size:14px;background:var(--surface);border:1px solid var(--border-2);border-radius:8px;color:var(--text);font-family:inherit}
-  input[type=text]:focus,textarea:focus{outline:none;border-color:var(--text-3);box-shadow:0 0 0 3px rgba(120,120,120,.12)}
+  /* ---------- inputs ---------- */
+  input[type=text],textarea,select{width:100%;padding:10px 13px;font-size:14px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:var(--radius-s);color:var(--text);font-family:inherit;transition:border-color .15s,box-shadow .15s}
+  input[type=text]:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  input::placeholder,textarea::placeholder{color:var(--text-3)}
   textarea{min-height:80px;resize:vertical;margin-top:.6rem}
+  select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23A79DCB' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
   button{font-family:inherit;cursor:pointer}
-  .btn{padding:0 1.1rem;height:40px;border:1px solid var(--border-2);border-radius:8px;background:var(--surface);color:var(--text);font-size:14px;transition:.15s;flex:0 0 auto}
-  .btn:hover{background:var(--surface-2)}
+  .btn{padding:0 1.1rem;height:40px;border:1px solid var(--border-2);border-radius:var(--radius-s);background:var(--surface-2);color:var(--text);font-size:14px;transition:.15s;flex:0 0 auto}
+  .btn:hover{background:var(--surface-3);border-color:var(--accent-2)}
+  /* ---------- chips ---------- */
   .prop-grid{display:flex;flex-wrap:wrap;gap:8px}
-  .chip{padding:7px 14px;font-size:13px;border:1.5px solid var(--border-2);border-radius:20px;background:var(--surface);color:var(--text-2);transition:.12s;user-select:none;display:inline-flex;align-items:center;gap:6px}
-  .chip:hover{border-color:var(--text-3)}
-  .chip.on{background:var(--accent);color:var(--bg);border-color:var(--accent)}
-  .chip.locked{opacity:.7;cursor:not-allowed}
+  .chip{padding:7px 14px;font-size:13px;border:1.5px solid var(--border-2);border-radius:20px;background:var(--surface-2);color:var(--text-2);transition:.15s;user-select:none;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+  .chip:hover{border-color:var(--accent);color:var(--text);transform:translateY(-1px)}
+  .chip.on{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;border-color:transparent;box-shadow:0 3px 14px rgba(109,40,217,.35)}
+  .chip.locked{opacity:.75;cursor:not-allowed}
   .chip .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.5}
-  .chip.on .dot{opacity:1}
+  .chip.on .dot{opacity:1;box-shadow:0 0 6px #fff}
   .preserve-row{display:flex;gap:8px}
   .preserve-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-  .tag{background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:4px 10px;font-size:13px;color:var(--text-2);display:flex;align-items:center;gap:8px}
+  .tag{background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:4px 10px;font-size:13px;color:var(--text-2);display:flex;align-items:center;gap:8px;animation:pop .2s ease both}
   .tag button{background:none;border:none;color:var(--text-3);font-size:16px;line-height:1;padding:0}
   .tag button:hover{color:var(--red)}
-  .btn-run{width:100%;padding:.85rem;font-size:16px;font-weight:600;background:var(--accent);color:var(--bg);border:none;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s}
-  .btn-run:hover{opacity:.88}
-  .btn-run:disabled{opacity:.4;cursor:not-allowed}
-  .progress-bar{height:5px;background:var(--surface-2);border-radius:5px;overflow:hidden;margin:1rem 0}
-  .progress-fill{height:100%;background:var(--accent);width:0;transition:width .3s}
-  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:1.2rem}
-  .stat{background:var(--surface-2);border-radius:10px;padding:.9rem 1.1rem}
-  .stat-click{cursor:pointer;transition:.15s;border:1px solid transparent}
-  .stat-click:hover{background:var(--border);border-color:var(--border-2);transform:translateY(-1px)}
-  .stat-click:after{content:"clique para ver ↗";display:block;font-size:10px;color:var(--text-3);margin-top:4px;opacity:.7}
-  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:1000;padding:1.5rem}
-  .modal-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:960px;width:100%;max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
-  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:1.1rem 1.4rem;border-bottom:1px solid var(--border)}
-  .modal-head h3{font-size:16px;font-weight:600}
-  .modal-close{background:none;border:none;font-size:22px;color:var(--text-2);cursor:pointer;line-height:1;padding:2px 6px;border-radius:6px}
-  .modal-close:hover{background:var(--surface-2);color:var(--text)}
-  .modal-body{overflow:auto;padding:1rem 1.4rem 1.4rem}
-  .stat-label{font-size:12px;color:var(--text-2);margin-bottom:5px}
-  .stat-value{font-size:24px;font-weight:600}
+  /* ---------- run button + progress ---------- */
+  .btn-run{width:100%;padding:.95rem;font-size:16px;font-weight:600;background:linear-gradient(135deg,var(--accent) 0%,var(--accent-2) 100%);color:#fff;border:none;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:9px;transition:.2s;box-shadow:var(--shadow-accent);letter-spacing:.01em;animation:fadeUp .5s ease both}
+  .btn-run:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 10px 34px rgba(109,40,217,.5);filter:brightness(1.08)}
+  .btn-run:active:not(:disabled){transform:translateY(0)}
+  .btn-run:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
+  .progress-bar{height:6px;background:var(--surface-2);border-radius:6px;overflow:hidden;margin:1rem 0}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--accent-2),var(--accent),#c4b5fd,var(--accent));background-size:450px 100%;animation:shimmer 1.4s linear infinite;width:0;transition:width .3s;border-radius:6px}
+  /* ---------- stats ---------- */
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:12px;margin-bottom:1.2rem}
+  .stat{background:var(--surface-2);border-radius:12px;padding:.95rem 1.1rem;border:1px solid var(--border);animation:pop .35s ease both}
+  .stat-click{cursor:pointer;transition:.18s}
+  .stat-click:hover{background:var(--surface-3);border-color:var(--accent);transform:translateY(-2px);box-shadow:0 6px 20px rgba(109,40,217,.22)}
+  .stat-click:after{content:"ver detalhes ↗";display:block;font-size:10px;color:var(--accent);margin-top:5px;opacity:0;transition:.18s}
+  .stat-click:hover:after{opacity:.9}
+  .stat-label{font-size:11.5px;color:var(--text-2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em;font-weight:500}
+  .stat-value{font-size:26px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
   .stat-value.green{color:var(--green)}.stat-value.amber{color:var(--amber)}.stat-value.red{color:var(--red)}
-  .detect-box{background:var(--surface-2);border-radius:10px;padding:.9rem 1.1rem;margin-bottom:1rem;font-size:13px;color:var(--text-2);line-height:1.8}
+  /* ---------- modals ---------- */
+  .modal-overlay{position:fixed;inset:0;background:rgba(5,3,12,.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:1000;padding:1.5rem;animation:pop .18s ease both}
+  .modal-box{background:var(--surface);border:1px solid var(--border-2);border-radius:var(--radius);max-width:960px;width:100%;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.6)}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:1.1rem 1.4rem;border-bottom:1px solid var(--border)}
+  .modal-head h3{font-size:15.5px;font-weight:600}
+  .modal-close{background:none;border:none;font-size:22px;color:var(--text-2);cursor:pointer;line-height:1;padding:2px 8px;border-radius:8px;transition:.15s}
+  .modal-close:hover{background:var(--surface-2);color:var(--red)}
+  .modal-body{overflow:auto;padding:1rem 1.4rem 1.4rem}
+  /* ---------- boxes ---------- */
+  .detect-box{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:.95rem 1.1rem;margin-bottom:1rem;font-size:13px;color:var(--text-2);line-height:1.85}
   .detect-box strong{color:var(--text)}
-  .ai-box{background:var(--surface-2);border:1px solid var(--border-2);border-radius:10px;padding:1rem 1.1rem;margin-bottom:1rem}
+  .ai-box{background:linear-gradient(160deg,var(--surface-2),rgba(109,40,217,.1));border:1px solid var(--border-2);border-radius:12px;padding:1.05rem 1.15rem;margin-bottom:1rem}
   .ai-box h3{font-size:14px;font-weight:600;margin-bottom:.4rem}
   .ai-box p{font-size:13px;color:var(--text-2);margin-bottom:.7rem}
   .ai-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .ai-row input{flex:1;min-width:220px}
+  .ai-row select{width:auto}
   .ai-status{font-size:13px;margin-top:.6rem;color:var(--text-2)}
-  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;max-height:480px;overflow-y:auto}
+  /* ---------- tables ---------- */
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;max-height:480px;overflow-y:auto;background:var(--surface)}
   table{width:100%;border-collapse:collapse;font-size:13px}
-  th{background:var(--surface-2);padding:9px 13px;text-align:left;font-weight:600;font-size:12px;color:var(--text-2);border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0}
-  td{padding:8px 13px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:230px;overflow:hidden;text-overflow:ellipsis}
+  th{background:var(--surface-2);padding:9px 13px;text-align:left;font-weight:600;font-size:11.5px;color:var(--text-2);border-bottom:1px solid var(--border-2);white-space:nowrap;position:sticky;top:0;text-transform:uppercase;letter-spacing:.04em;z-index:1}
+  td{padding:8px 13px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:230px;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
   tr:last-child td{border-bottom:none}
-  tr:hover td{background:var(--surface-2)}
-  .tab-row{display:flex;gap:4px;margin-bottom:.9rem;flex-wrap:wrap}
-  .tab{padding:7px 16px;font-size:14px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-2)}
-  .tab.active{background:var(--accent);color:var(--bg);border-color:transparent}
-  .btn-dl{padding:.55rem 1.1rem;font-size:13px;border:1px solid var(--border-2);border-radius:8px;background:var(--surface);color:var(--text);display:inline-flex;align-items:center;gap:6px}
-  .btn-dl:hover{background:var(--surface-2)}
-  .log-box{background:var(--surface-2);border-radius:10px;padding:1.1rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--text-2);white-space:pre-wrap;line-height:1.8;max-height:380px;overflow-y:auto}
+  tr:hover td{background:var(--accent-soft)}
+  /* ---------- tabs & downloads ---------- */
+  .tab-row{display:flex;gap:5px;margin-bottom:.9rem;flex-wrap:wrap;background:var(--surface-2);padding:5px;border-radius:12px;width:fit-content;border:1px solid var(--border)}
+  .tab{padding:7px 18px;font-size:13.5px;border:none;border-radius:8px;background:transparent;color:var(--text-2);transition:.15s;font-weight:500}
+  .tab:hover{color:var(--text)}
+  .tab.active{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;box-shadow:0 2px 10px rgba(109,40,217,.4)}
+  .btn-dl{padding:.55rem 1.1rem;font-size:13px;border:1px solid var(--border-2);border-radius:var(--radius-s);background:var(--surface-2);color:var(--text);display:inline-flex;align-items:center;gap:6px;transition:.15s}
+  .btn-dl:hover{background:var(--surface-3);border-color:var(--accent);transform:translateY(-1px)}
+  .log-box{background:#0c0917;border:1px solid var(--border);border-radius:12px;padding:1.15rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--text-2);white-space:pre-wrap;line-height:1.85;max-height:380px;overflow-y:auto}
   .corr{font-size:13px;color:var(--text-2);margin-bottom:.8rem}
-  .corr code{background:var(--surface-2);padding:2px 7px;border-radius:5px;font-size:12px}
+  .corr code{background:var(--surface-2);border:1px solid var(--border);padding:2px 7px;border-radius:6px;font-size:12px;color:#c4b5fd}
   .hidden{display:none}
-  .colmap-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)}
+  /* ---------- colmap ---------- */
+  .colmap-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)}
   .colmap-row:last-child{border-bottom:none}
   .colmap-h{flex:1;font-size:14px;display:flex;flex-direction:column;gap:2px;min-width:0}
   .colmap-h strong{color:var(--text);word-break:break-word}
   .colmap-ex{font-size:11px;color:var(--text-3)}
-  .colmap-sel{flex:0 0 200px;height:38px;padding:0 10px;font-size:13px;background:var(--surface);border:1px solid var(--border-2);border-radius:8px;color:var(--text)}
-  .colmap-sel:focus{outline:none;border-color:var(--text-3)}
-  .colmap-outros-sel{flex:0 0 180px;height:38px;padding:0 10px;font-size:13px;background:var(--surface);border:1px solid var(--border-2);border-radius:8px;color:var(--text);display:none}
+  .colmap-sel{flex:0 0 200px;width:200px;height:38px;padding:0 32px 0 10px;font-size:13px}
+  .colmap-outros-sel{flex:0 0 180px;width:180px;height:38px;padding:0 32px 0 10px;font-size:13px;display:none}
   #colmap-list.outros-active .colmap-outros-sel{display:block}
-  .colmap-outros-sel:focus{outline:none;border-color:var(--text-3)}
-  .colmap-outros-sel.active{border-color:#3d8b70;background:#0d1f18}
-  .footer{text-align:center;font-size:12px;color:var(--text-3);margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border)}
+  .colmap-outros-sel.active{border-color:var(--accent);background-color:var(--accent-soft)}
+  /* ---------- busca na tabela ---------- */
+  .filter-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:.6rem;flex-wrap:wrap}
+  .search-wrap{position:relative;flex:1;min-width:200px;max-width:340px}
+  .search-wrap input{padding-left:34px;height:38px}
+  .search-wrap::before{content:"🔍";position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:13px;opacity:.55;pointer-events:none}
+  .filter-count{font-size:12px;color:var(--text-3);white-space:nowrap}
+  /* ---------- histórico ---------- */
+  .hist-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:.4rem}
+  .hist-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .hist-empty{text-align:center;padding:2rem 1rem;color:var(--text-3);font-size:13.5px;border:1.5px dashed var(--border-2);border-radius:12px}
+  .hist-list{display:flex;flex-direction:column;gap:9px}
+  .hist-item{display:flex;align-items:center;gap:14px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:.85rem 1.05rem;transition:.18s;animation:fadeUp .3s ease both;flex-wrap:wrap}
+  .hist-item:hover{border-color:var(--accent);box-shadow:0 4px 18px rgba(109,40,217,.18)}
+  .hist-ico{width:38px;height:38px;flex:0 0 auto;border-radius:10px;background:var(--accent-soft);border:1px solid var(--border-2);display:flex;align-items:center;justify-content:center;font-size:17px}
+  .hist-info{flex:1;min-width:170px}
+  .hist-file{font-size:14px;font-weight:600;color:var(--text);word-break:break-all}
+  .hist-date{font-size:11.5px;color:var(--text-3);margin-top:1px}
+  .hist-stats{display:flex;gap:6px;flex-wrap:wrap}
+  .hist-pill{font-size:11px;padding:3px 9px;border-radius:20px;background:var(--surface-3);border:1px solid var(--border-2);color:var(--text-2);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .hist-pill b{font-weight:700}
+  .hist-pill.ok b{color:var(--green)}
+  .hist-pill.bad b{color:var(--red)}
+  .hist-pill.dup b{color:var(--amber)}
+  .hist-btns{display:flex;gap:6px}
+  .hist-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--text-2);font-size:14px;display:flex;align-items:center;justify-content:center;transition:.15s}
+  .hist-btn:hover{border-color:var(--accent);color:var(--text);background:var(--surface-3)}
+  .hist-btn.del:hover{border-color:var(--red);color:var(--red)}
+  .hist-badge{font-size:11px;font-weight:600;background:var(--accent-soft);color:#c4b5fd;border:1px solid var(--border-2);border-radius:20px;padding:3px 10px}
+  /* ---------- toasts ---------- */
+  .toast-wrap{position:fixed;bottom:22px;right:22px;z-index:2000;display:flex;flex-direction:column;gap:9px;pointer-events:none}
+  .toast{pointer-events:auto;display:flex;align-items:center;gap:10px;background:var(--surface-3);border:1px solid var(--border-2);border-left:3px solid var(--accent);border-radius:12px;padding:.75rem 1.05rem;font-size:13.5px;color:var(--text);box-shadow:0 10px 34px rgba(0,0,0,.55);min-width:250px;max-width:360px;opacity:0;transform:translateX(24px);transition:all .28s cubic-bezier(.2,.8,.3,1)}
+  .toast.show{opacity:1;transform:none}
+  .toast.ok{border-left-color:var(--green)}
+  .toast.warn{border-left-color:var(--amber)}
+  .toast.err{border-left-color:var(--red)}
+  .footer{text-align:center;font-size:12px;color:var(--text-3);margin-top:2.4rem;padding-top:1.5rem;border-top:1px solid var(--border)}
+  .footer b{color:var(--text-2)}
+  @media(max-width:560px){body{padding:1.2rem .7rem 2rem}.card{padding:1.1rem}.hist-item{gap:9px}.toast-wrap{left:14px;right:14px}.toast{max-width:none;width:100%}}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="header">
-    <h1>✨ HubSpot Lead Cleaner</h1>
-    <p>Higienização de planilhas de leads/contatos para importação no HubSpot</p>
-    <span class="badge-offline">100% offline — nenhum dado sai do seu computador (exceto se você usar o refino por IA)</span>
+    <div class="logo-mark">⚡</div>
+    <div>
+      <h1>HubSpot Lead Cleaner</h1>
+      <p>Higienização de planilhas de leads/contatos para importação no HubSpot</p>
+      <span class="badge-offline">100% offline — nenhum dado sai do seu computador (exceto se você usar o refino por IA)</span>
+    </div>
   </div>
 
   <div class="card">
@@ -183,10 +268,14 @@
         <button class="tab" onclick="showTab('log')" id="tab-log">Log</button>
       </div>
       <div id="pane-dados">
-        <div style="display:flex;justify-content:flex-end;margin-bottom:.6rem;gap:8px;flex-wrap:wrap">
-          <button class="btn-dl" onclick="downloadCSV('dados')">⬇️ Baixar CSV limpo</button>
-          <button class="btn-dl" onclick="downloadAll()">📦 Baixar tudo</button>
-          <button class="btn-dl" onclick="abrirGoogleSheets()">📊 Abrir no Google Sheets</button>
+        <div class="filter-row">
+          <div class="search-wrap"><input type="text" id="table-filter" placeholder="Buscar nos dados limpos..." oninput="filterDados()"></div>
+          <span class="filter-count" id="filter-count"></span>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn-dl" onclick="downloadCSV('dados')">⬇️ Baixar CSV limpo</button>
+            <button class="btn-dl" onclick="downloadAll()">📦 Baixar tudo</button>
+            <button class="btn-dl" onclick="abrirGoogleSheets()">📊 Abrir no Google Sheets</button>
+          </div>
         </div>
         <div class="table-wrap" id="table-dados"></div>
       </div>
@@ -200,7 +289,20 @@
     </div>
   </div>
 
-  <div class="footer">HubSpot Lead Cleaner v7.8 — aplicação standalone</div>
+  <div class="card" id="history-card">
+    <div class="hist-head">
+      <h2>🗂️ Histórico de planilhas tratadas <span class="hist-badge" id="hist-count">0</span></h2>
+      <div class="hist-actions">
+        <button class="btn-dl" onclick="exportHistoryCSV()" title="Baixar o histórico como CSV">⬇️ Exportar CSV</button>
+        <button class="btn-dl" onclick="exportHistoryJSON()" title="Baixar o histórico completo (com logs) em JSON">🧾 Exportar JSON</button>
+        <button class="btn-dl" onclick="clearHistory()" title="Apagar todo o histórico">🗑️ Limpar</button>
+      </div>
+    </div>
+    <p class="sub">Cada higienização é registrada automaticamente neste navegador, com estatísticas e o relatório completo.</p>
+    <div id="hist-list-wrap"></div>
+  </div>
+
+  <div class="footer"><b>HubSpot Lead Cleaner v8.0</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -214,6 +316,23 @@
     </div>
   </div>
 </div>
+
+<div class="modal-overlay hidden" id="hist-modal" onclick="if(event.target===this)closeHistModal()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="hist-modal-title">Relatório</h3>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn-dl" id="hist-modal-dl" onclick="">⬇️ Baixar .txt</button>
+        <button class="modal-close" onclick="closeHistModal()">×</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="log-box" id="hist-modal-log"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
 
 <script>
 /* ===================== TABELAS DE REFERÊNCIA ===================== */
@@ -569,7 +688,7 @@ function isAreaColumn(h){let n=norm(h);return n.includes('atuacao')||n.includes(
 /* ===================== ESTADO + UI ===================== */
 const PROPS=['Nome','Sobrenome','Email','Número de Telefone','CPF/CNPJ','Nome da Empresa','Cargo','Cargo RH','Faixa de Colaboradores','Valor da Mensalidade','Cliente Sólides/Tangerino?','Observação','Informações de Negócios','Outros'];
 const COMPUTED=new Set(['Nome','Sobrenome','Cargo','Cargo RH','Faixa de Colaboradores','CPF/CNPJ']);
-let rawData=[], preserveCols=[], dfDados=[], dfInvalidos=[], logText='', detectInfo='';
+let rawData=[], preserveCols=[], dfDados=[], dfInvalidos=[], logText='', detectInfo='', currentFileName='';
 let statDetailData={}; // {chave: {titulo, linhas}} — usado pelos cards clicáveis de estatística
 let selectedProps=new Set(['Nome','Sobrenome','Email']);
 let alperAtivo=false;
@@ -633,12 +752,14 @@ dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dragover'
 fi.addEventListener('change',()=>{if(fi.files[0])handleFile(fi.files[0]);});
 
 function handleFile(file){
+  currentFileName=file.name||'planilha.csv';
   const reader=new FileReader();
   reader.onload=e=>{
-    try{rawData=parseCSV(e.target.result);}catch(err){rawData=[];alert('Erro ao ler o CSV: '+err.message);}
+    try{rawData=parseCSV(e.target.result);}catch(err){rawData=[];toast('Erro ao ler o CSV: '+err.message,'err');}
     document.getElementById('file-info').innerHTML='✅ <strong>'+esc(file.name)+'</strong> — '+rawData.length+' linhas, '+(rawData.length?Object.keys(rawData[0]).length:0)+' colunas';
     document.getElementById('file-info').classList.remove('hidden');
     document.getElementById('btn-run').disabled=rawData.length===0;
+    if(rawData.length)toast('📄 '+file.name+' carregado — '+rawData.length+' linhas','ok');
     autoSelectProps();
   };
   reader.readAsText(file,'UTF-8');
@@ -1060,6 +1181,19 @@ function runPipeline(){
 
     setProgress(95);
     renderResults(dupes,corrections,nomesSeparados,nomesZerados,enriched,emailsExpandidos,telefonesInvalidos,docsInvalidos);
+    addHistoryEntry({
+      file:currentFileName||'planilha.csv',
+      entrada:rawData.length,
+      limpos:dfDados.length,
+      invalidos:dfInvalidos.length,
+      duplicatas:dupes,
+      dominios:corrections.length,
+      nomesSeparados:nomesSeparados,
+      nomesZerados:nomesZerados,
+      props:order.slice(),
+      log:logText
+    });
+    toast('✅ Planilha higienizada — '+dfDados.length+' contatos limpos','ok');
     setProgress(100);
     setTimeout(()=>document.getElementById('progress-bar').classList.add('hidden'),400);
     document.getElementById('btn-run').disabled=false;
@@ -1089,6 +1223,9 @@ function renderResults(dupes,corrections,nomesSeparados,nomesZerados,enriched,em
     (telefonesInvalidos?'<div class="stat stat-click" onclick="showStatDetail(\'telInvalidos\')"><div class="stat-label">Telefones inválidos zerados</div><div class="stat-value amber">'+telefonesInvalidos+'</div></div>':'')+
     (docsInvalidos?'<div class="stat stat-click" onclick="showStatDetail(\'docInvalidos\')"><div class="stat-label">CPF/CNPJ inválidos zerados</div><div class="stat-value amber">'+docsInvalidos+'</div></div>':'');
   document.getElementById('corrections').innerHTML=corrections.length?'⚡ Domínios auto-corrigidos: '+corrections.slice(0,5).map(c=>'<code>'+esc(c.antes)+' → '+esc(c.depois)+'</code>').join(' ')+(corrections.length>5?' e mais '+(corrections.length-5)+'...':''):'';
+  animateStats();
+  const tf=document.getElementById('table-filter');if(tf)tf.value='';
+  updateFilterCount(dfDados.length,dfDados.length);
   renderTable('table-dados',dfDados);renderTable('table-invalidos',dfInvalidos);
   document.getElementById('log-content').textContent=logText;
   document.getElementById('results').scrollIntoView({behavior:'smooth'});
@@ -1117,6 +1254,7 @@ function downloadCSV(type){
   let blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
   let a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='hubspot_'+type+'_limpo_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+  toast('⬇️ CSV de '+(type==='dados'?'dados limpos':'inválidos')+' baixado','ok');
 }
 function downloadAll(){
   if(!dfDados.length&&!dfInvalidos.length)return;
@@ -1132,6 +1270,7 @@ function downloadAll(){
   let blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
   let a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='hubspot_completo_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+  toast('📦 Planilha completa baixada','ok');
 }
 function abrirGoogleSheets(){
   if(!dfDados.length)return;
@@ -1390,6 +1529,191 @@ async function chamarGemini(apiKey,entradas){
   }
   throw lastErr||new Error('Nenhum modelo/autenticação Gemini funcionou. Verifique sua chave em aistudio.google.com/apikey');
 }
+
+/* ===================== INTERATIVIDADE v8: toasts, histórico, busca, animações ===================== */
+
+/* ---------- Toasts ---------- */
+function toast(msg,type){
+  const wrap=document.getElementById('toast-wrap');
+  if(!wrap)return;
+  const el=document.createElement('div');
+  el.className='toast'+(type?' '+type:'');
+  el.textContent=msg;
+  wrap.appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('show'));
+  setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),320);},3400);
+}
+
+/* ---------- Contadores animados nos cards de estatística ---------- */
+function animateStats(){
+  document.querySelectorAll('#stats-grid .stat-value').forEach(el=>{
+    const target=parseInt(el.textContent.replace(/\D/g,''),10);
+    if(isNaN(target))return;
+    if(target===0){el.textContent='0';return;}
+    const dur=650,start=performance.now();
+    function frame(now){
+      const t=Math.min((now-start)/dur,1);
+      const eased=1-Math.pow(1-t,3);
+      el.textContent=Math.round(target*eased).toLocaleString('pt-BR');
+      if(t<1)requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
+/* ---------- Busca na tabela de dados limpos ---------- */
+let filterTimer=null;
+function filterDados(){
+  clearTimeout(filterTimer);
+  filterTimer=setTimeout(()=>{
+    const q=(document.getElementById('table-filter').value||'').toLowerCase().trim();
+    if(!q){renderTable('table-dados',dfDados);updateFilterCount(dfDados.length,dfDados.length);return;}
+    const filtrados=dfDados.filter(r=>Object.values(r).some(v=>String(v??'').toLowerCase().includes(q)));
+    renderTable('table-dados',filtrados);
+    updateFilterCount(filtrados.length,dfDados.length);
+  },160);
+}
+function updateFilterCount(mostrando,total){
+  const el=document.getElementById('filter-count');
+  if(!el)return;
+  el.textContent=mostrando===total?total.toLocaleString('pt-BR')+' registros':mostrando.toLocaleString('pt-BR')+' de '+total.toLocaleString('pt-BR')+' registros';
+}
+
+/* ---------- Histórico persistente (localStorage, com fallback em memória) ---------- */
+const HIST_KEY='hlc_history_v1';
+const HIST_MAX=100;
+let _histMem=[]; // fallback caso localStorage esteja indisponível
+function _histRead(){
+  try{
+    const raw=localStorage.getItem(HIST_KEY);
+    return raw?JSON.parse(raw):[];
+  }catch(e){return _histMem;}
+}
+function _histWrite(arr){
+  _histMem=arr;
+  try{localStorage.setItem(HIST_KEY,JSON.stringify(arr));}
+  catch(e){
+    // Quota estourada: tenta salvar sem os logs mais antigos
+    try{
+      const enxuto=arr.map((h,i)=>i<10?h:Object.assign({},h,{log:'(log descartado para liberar espaço)'}));
+      localStorage.setItem(HIST_KEY,JSON.stringify(enxuto));
+    }catch(e2){/* mantém só em memória */}
+  }
+}
+function addHistoryEntry(e){
+  const arr=_histRead();
+  arr.unshift({
+    id:Date.now()+'-'+Math.random().toString(36).slice(2,7),
+    ts:new Date().toISOString(),
+    file:e.file,entrada:e.entrada,limpos:e.limpos,invalidos:e.invalidos,
+    duplicatas:e.duplicatas,dominios:e.dominios,
+    nomesSeparados:e.nomesSeparados,nomesZerados:e.nomesZerados,
+    props:e.props||[],log:e.log||''
+  });
+  if(arr.length>HIST_MAX)arr.length=HIST_MAX;
+  _histWrite(arr);
+  renderHistory();
+}
+function deleteHistoryEntry(id){
+  const arr=_histRead().filter(h=>h.id!==id);
+  _histWrite(arr);
+  renderHistory();
+  toast('Registro removido do histórico','warn');
+}
+function clearHistory(){
+  if(!_histRead().length){toast('O histórico já está vazio','warn');return;}
+  if(!confirm('Apagar TODO o histórico de planilhas tratadas? Esta ação não pode ser desfeita.'))return;
+  _histWrite([]);
+  renderHistory();
+  toast('🗑️ Histórico apagado','warn');
+}
+function _fmtData(iso){
+  const d=new Date(iso);
+  return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'})+' às '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+function renderHistory(){
+  const wrap=document.getElementById('hist-list-wrap');
+  const badge=document.getElementById('hist-count');
+  if(!wrap)return;
+  const arr=_histRead();
+  if(badge)badge.textContent=arr.length;
+  if(!arr.length){
+    wrap.innerHTML='<div class="hist-empty">Nenhuma planilha tratada ainda.<br>Assim que você higienizar a primeira, ela aparece aqui automaticamente. ✨</div>';
+    return;
+  }
+  wrap.innerHTML='<div class="hist-list">'+arr.map(h=>
+    '<div class="hist-item">'+
+      '<div class="hist-ico">📄</div>'+
+      '<div class="hist-info">'+
+        '<div class="hist-file">'+esc(h.file)+'</div>'+
+        '<div class="hist-date">'+_fmtData(h.ts)+(h.props&&h.props.length?' · '+h.props.length+' propriedades':'')+'</div>'+
+      '</div>'+
+      '<div class="hist-stats">'+
+        '<span class="hist-pill">Entrada <b>'+(h.entrada??0).toLocaleString('pt-BR')+'</b></span>'+
+        '<span class="hist-pill ok">Limpos <b>'+(h.limpos??0).toLocaleString('pt-BR')+'</b></span>'+
+        '<span class="hist-pill bad">Inválidos <b>'+(h.invalidos??0).toLocaleString('pt-BR')+'</b></span>'+
+        '<span class="hist-pill dup">Duplicatas <b>'+(h.duplicatas??0).toLocaleString('pt-BR')+'</b></span>'+
+      '</div>'+
+      '<div class="hist-btns">'+
+        '<button class="hist-btn" title="Ver relatório completo" onclick="viewHistoryEntry(\''+h.id+'\')">📋</button>'+
+        '<button class="hist-btn" title="Baixar relatório .txt" onclick="downloadHistoryLog(\''+h.id+'\')">⬇️</button>'+
+        '<button class="hist-btn del" title="Remover do histórico" onclick="deleteHistoryEntry(\''+h.id+'\')">×</button>'+
+      '</div>'+
+    '</div>'
+  ).join('')+'</div>';
+}
+function viewHistoryEntry(id){
+  const h=_histRead().find(x=>x.id===id);
+  if(!h)return;
+  document.getElementById('hist-modal-title').textContent='📋 '+h.file+' — '+_fmtData(h.ts);
+  document.getElementById('hist-modal-log').textContent=h.log||'(sem log salvo para este registro)';
+  document.getElementById('hist-modal-dl').onclick=()=>downloadHistoryLog(id);
+  document.getElementById('hist-modal').classList.remove('hidden');
+}
+function closeHistModal(){document.getElementById('hist-modal').classList.add('hidden');}
+function downloadHistoryLog(id){
+  const h=_histRead().find(x=>x.id===id);
+  if(!h)return;
+  const blob=new Blob([h.log||''],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='relatorio_'+h.file.replace(/\.csv$/i,'').replace(/[^\w\-]+/g,'_')+'_'+h.ts.slice(0,10)+'.txt';
+  a.click();
+  toast('⬇️ Relatório baixado','ok');
+}
+function exportHistoryCSV(){
+  const arr=_histRead();
+  if(!arr.length){toast('Histórico vazio — nada para exportar','warn');return;}
+  const cols=['data','arquivo','entrada','limpos','invalidos','duplicatas','dominios_corrigidos','nomes_separados','nomes_zerados','propriedades'];
+  const linhas=arr.map(h=>[
+    new Date(h.ts).toLocaleString('pt-BR'),h.file,h.entrada??'',h.limpos??'',h.invalidos??'',
+    h.duplicatas??'',h.dominios??'',h.nomesSeparados??'',h.nomesZerados??'',(h.props||[]).join('; ')
+  ].map(v=>esc2(String(v))).join(','));
+  const csv=cols.join(',')+'\n'+linhas.join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='historico_higienizacoes_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  toast('⬇️ Histórico exportado em CSV','ok');
+}
+function exportHistoryJSON(){
+  const arr=_histRead();
+  if(!arr.length){toast('Histórico vazio — nada para exportar','warn');return;}
+  const blob=new Blob([JSON.stringify(arr,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='historico_higienizacoes_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+  toast('🧾 Histórico completo exportado (JSON)','ok');
+}
+
+/* fechar modais com Esc */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeHistModal();closeStatDetail();}
+});
+
+renderHistory();
 </script>
 </body>
 <!-- cache-bust -->
