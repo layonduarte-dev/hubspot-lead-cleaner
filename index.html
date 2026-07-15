@@ -168,6 +168,14 @@
   .hist-btn:hover{border-color:var(--accent);color:var(--text);background:var(--surface-3)}
   .hist-btn.del:hover{border-color:var(--red);color:var(--red)}
   .hist-badge{font-size:11px;font-weight:600;background:var(--accent-soft);color:#c4b5fd;border:1px solid var(--border-2);border-radius:20px;padding:3px 10px}
+  .hist-head-btn{display:flex;align-items:center;gap:8px;background:none;border:none;cursor:pointer;padding:2px 4px;margin:-2px -4px;border-radius:8px;transition:.15s}
+  .hist-head-btn:hover{background:var(--surface-2)}
+  .hist-head-btn h2{margin:0}
+  .hist-chevron{display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:var(--text-3);transition:transform .22s ease}
+  #history-card.collapsed .hist-chevron{transform:rotate(-90deg)}
+  .hist-body{display:grid;grid-template-rows:1fr;transition:grid-template-rows .25s ease,opacity .2s ease,margin-top .25s ease;margin-top:.2rem;opacity:1}
+  .hist-body>div{overflow:hidden}
+  #history-card.collapsed .hist-body{grid-template-rows:0fr;opacity:0;margin-top:0}
   /* ---------- toasts ---------- */
   .toast-wrap{position:fixed;bottom:22px;right:22px;z-index:2000;display:flex;flex-direction:column;gap:9px;pointer-events:none}
   .toast{pointer-events:auto;display:flex;align-items:center;gap:10px;background:var(--surface-3);border:1px solid var(--border-2);border-left:3px solid var(--accent);border-radius:12px;padding:.75rem 1.05rem;font-size:13.5px;color:var(--text);box-shadow:0 10px 34px rgba(0,0,0,.55);min-width:250px;max-width:360px;opacity:0;transform:translateX(24px);transition:all .28s cubic-bezier(.2,.8,.3,1)}
@@ -291,18 +299,25 @@
 
   <div class="card" id="history-card">
     <div class="hist-head">
-      <h2>🗂️ Histórico de planilhas tratadas <span class="hist-badge" id="hist-count">0</span></h2>
+      <button class="hist-head-btn" onclick="toggleHistory()" title="Mostrar/ocultar histórico">
+        <span class="hist-chevron" id="hist-chevron">▾</span>
+        <h2>🗂️ Histórico de planilhas tratadas <span class="hist-badge" id="hist-count">0</span></h2>
+      </button>
       <div class="hist-actions">
         <button class="btn-dl" onclick="exportHistoryCSV()" title="Baixar o histórico como CSV">⬇️ Exportar CSV</button>
         <button class="btn-dl" onclick="exportHistoryJSON()" title="Baixar o histórico completo (com logs) em JSON">🧾 Exportar JSON</button>
         <button class="btn-dl" onclick="clearHistory()" title="Apagar todo o histórico">🗑️ Limpar</button>
       </div>
     </div>
-    <p class="sub">Cada higienização é registrada automaticamente neste navegador, com estatísticas e o relatório completo.</p>
-    <div id="hist-list-wrap"></div>
+    <div class="hist-body" id="hist-body">
+      <div>
+        <p class="sub">Cada higienização é registrada automaticamente neste navegador, com estatísticas e o relatório completo.</p>
+        <div id="hist-list-wrap"></div>
+      </div>
+    </div>
   </div>
 
-  <div class="footer"><b>HubSpot Lead Cleaner v8.0</b> — aplicação standalone · tema Dark Purple · histórico local</div>
+  <div class="footer"><b>HubSpot Lead Cleaner v8.1</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -1631,6 +1646,24 @@ function _fmtData(iso){
   const d=new Date(iso);
   return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'})+' às '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 }
+const HIST_COLLAPSE_KEY='hlc_hist_collapsed';
+function toggleHistory(force){
+  const card=document.getElementById('history-card');
+  const chev=document.getElementById('hist-chevron');
+  if(!card)return;
+  const collapsed = typeof force==='boolean' ? force : !card.classList.contains('collapsed');
+  card.classList.toggle('collapsed', collapsed);
+  if(chev) chev.textContent = collapsed ? '▸' : '▾';
+  try{localStorage.setItem(HIST_COLLAPSE_KEY, collapsed ? '1':'0');}catch(e){}
+}
+function _initHistoryCollapse(){
+  let collapsed=true; // minimizado por padrão
+  try{
+    const saved=localStorage.getItem(HIST_COLLAPSE_KEY);
+    if(saved!==null) collapsed = saved==='1';
+  }catch(e){}
+  toggleHistory(collapsed);
+}
 function renderHistory(){
   const wrap=document.getElementById('hist-list-wrap');
   const badge=document.getElementById('hist-count');
@@ -1714,6 +1747,7 @@ document.addEventListener('keydown',e=>{
 });
 
 renderHistory();
+_initHistoryCollapse();
 </script>
 </body>
 <!-- cache-bust -->
