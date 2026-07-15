@@ -317,7 +317,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>HubSpot Lead Cleaner v8.1</b> — aplicação standalone · tema Dark Purple · histórico local</div>
+  <div class="footer"><b>HubSpot Lead Cleaner v8.2</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -406,6 +406,12 @@ for(let b of BASES){for(let t of TLDS){if(dom===b+t.replace('\\.','.')){dom=b+'.
 // 4. domínio customizado colado: empresa.combr → empresa.com.br
 if(/[a-z0-9]combr$/.test(dom)&&!dom.includes('.com.br'))dom=dom.replace(/combr$/,'.com.br');
 if(/[a-z0-9]comr$/.test(dom)&&!dom.includes('.com'))dom=dom.replace(/comr$/,'.com');
+// 5. letra final duplicada por engano no TLD: .com.brr → .com.br, .com.br. → .com.br, .comm/.orgg/.nett/.brr etc.
+const TLDS_VALIDOS=['com.br','net.br','org.br','gov.br','edu.br','adv.br','eng.br','med.br','app.br','blog.br','com.ar','com','net','org','info','biz','io','co','br'];
+for(let t of TLDS_VALIDOS){
+  const dup=t+t[t.length-1]; // ex: 'com.br'+'r' = 'com.brr'
+  if(dom.endsWith('.'+dup)){dom=dom.slice(0,-1);break;}
+}
 return local+'@'+dom;}
 function validSyntax(e){return !!e&&/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);}
 const BLOCKED_DOMAINS=new Set(['solides.com.br','tangerino.com.br']);
@@ -1150,6 +1156,10 @@ function runPipeline(){
       }
       delete row._telInvalido;
       delete row._docInvalido;
+      // segurança final: garante que CPF/CNPJ só saia com 11 ou 14 dígitos válidos (dígito verificador ok); senão, fica em branco
+      if(row['CPF/CNPJ']!==undefined&&row['CPF/CNPJ']!==null&&row['CPF/CNPJ']!==''){
+        row['CPF/CNPJ']=limparDoc(row['CPF/CNPJ']);
+      }
       dados.push(row);idx++;
     });
 
