@@ -590,11 +590,32 @@ function limparMensalidade(v){
   if(v===null||v===undefined)return '';
   let s=String(v).trim();
   if(['','nan','none','null','na'].includes(s.toLowerCase()))return '';
-  // Remove R$, espaços, pontos de milhar; troca vírgula decimal por ponto
   s=s.replace(/R\$\s*/gi,'').trim();
-  s=s.replace(/\./g,'').replace(',','.');
-  // Se sobrou algo que parece número, retorna; senão devolve o original sem R$
-  return isNaN(parseFloat(s))?s.replace(/R\$\s*/gi,'').trim():s;
+  if(!s)return '';
+  s=s.replace(/\s/g,'');
+  const hasDot=s.includes('.'),hasComma=s.includes(',');
+  let numStr;
+  if(hasDot&&hasComma){
+    // Os dois separadores aparecem: o que vier por último é o decimal
+    const lastDot=s.lastIndexOf('.'),lastComma=s.lastIndexOf(',');
+    numStr=lastComma>lastDot
+      ? s.replace(/\./g,'').replace(',','.') // formato BR: . milhar, , decimal
+      : s.replace(/,/g,''); // formato US: , milhar, . decimal
+  }else if(hasComma){
+    const parts=s.split(',');
+    const dec=parts[parts.length-1];
+    numStr=(parts.length===2&&dec.length!==3)?parts[0]+'.'+dec:s.replace(/,/g,'');
+  }else if(hasDot){
+    const parts=s.split('.');
+    const dec=parts[parts.length-1];
+    numStr=(parts.length===2&&dec.length!==3)?s:s.replace(/\./g,'');
+  }else{
+    numStr=s;
+  }
+  const num=parseFloat(numStr);
+  if(isNaN(num))return s;
+  // Formata para padrão brasileiro completo: milhar com ponto, decimal com vírgula, 2 casas
+  return num.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 
 function mapCargoRH(role,areaText){
