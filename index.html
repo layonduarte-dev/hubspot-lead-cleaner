@@ -415,7 +415,7 @@ for(let t of TLDS_VALIDOS){
 return local+'@'+dom;}
 function validSyntax(e){return !!e&&/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);}
 const BLOCKED_DOMAINS=new Set(['solides.com.br','tangerino.com.br']);
-function isJunk(e){if(!e||!e.includes('@'))return true;if(JUNK_EMAILS.has(e))return true;let i=e.lastIndexOf('@');let local=e.slice(0,i),dom=e.slice(i+1);if(BLOCKED_DOMAINS.has(dom))return true;let domRoot=dom.split('.')[0];if(local===domRoot)return true;if(new Set([...local]).size===1&&local.length>0)return true;let seq=['asdf','qwer','qwerty','1234','abcd','teste','test'];return seq.includes(local)||['asdf','teste','test'].includes(domRoot);}
+function isJunk(e){if(!e||!e.includes('@'))return true;if(JUNK_EMAILS.has(e))return true;let i=e.lastIndexOf('@');let local=e.slice(0,i),dom=e.slice(i+1);if(BLOCKED_DOMAINS.has(dom))return true;let domRoot=dom.split('.')[0];if(new Set([...local]).size===1&&local.length>0)return true;let seq=['asdf','qwer','qwerty','1234','abcd','teste','test'];return seq.includes(local)||['asdf','teste','test'].includes(domRoot);}
 
 function titleCasePT(s){if(!s)return '';const prep=new Set(['de','da','do','das','dos','e','di','del','la','y']);return String(s).trim().split(/\s+/).map((w,i)=>{let lw=w.toLowerCase();if(i>0&&prep.has(lw))return lw;const acentuado=restaurarAcento(lw);if(acentuado)return acentuado;return lw.charAt(0).toUpperCase()+lw.slice(1);}).join(' ');}
 const CARGO_SETOR_RE=/^(gerente|diretor|diretora|analista|especialista|coordenador|coordenadora|assistente|consultor|consultora|representante|supervisor|supervisora|vendedor|vendedora|operador|operadora|tecnico|tecnica|engenheiro|engenheira|contador|contadora|advogado|advogada|extracao|producao|fabricacao|comercio|industria|servicos|atividades)\b/i;
