@@ -249,9 +249,11 @@
   .cmp-card.only-base{border-left-color:var(--red)}
   .cmp-card.only-base .n{color:var(--red)}
   .cmp-card.only-base:hover{border-color:var(--red);box-shadow:0 6px 20px rgba(242,125,125,.15)}
-  .cmp-card.all-in{border-left-color:var(--green);cursor:default}
+  .cmp-card.all-in{border-left-color:var(--green)}
   .cmp-card.all-in .n{color:var(--green)}
-  .cmp-card.all-in:hover{transform:none;box-shadow:none;border-color:var(--border-2)}
+  .cmp-card.all-in:hover{border-color:var(--green);box-shadow:0 6px 20px rgba(61,217,164,.18)}
+  .cmp-card.info-static{cursor:default}
+  .cmp-card.info-static:hover{transform:none;box-shadow:none;border-color:var(--border-2)}
   /* toggle de modo */
   .mode-toggle{display:inline-flex;background:var(--surface-2);border:1px solid var(--border-2);border-radius:12px;padding:4px;gap:4px;margin-top:1.1rem}
   .mode-toggle button{background:none;border:none;color:var(--text-2);padding:9px 20px;font-size:14px;font-weight:500;border-radius:9px;transition:.18s;display:flex;align-items:center;gap:8px}
@@ -332,7 +334,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>Comparador de Planilhas v3.0</b> — parte do HubSpot Lead Cleaner · <a href="index.html" style="color:var(--text-2)">página principal</a></div>
+  <div class="footer"><b>Comparador de Planilhas v3.1</b> — parte do HubSpot Lead Cleaner · <a href="index.html" style="color:var(--text-2)">página principal</a></div>
 </div>
 <div id="toast-wrap" style="position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:9px;z-index:999;pointer-events:none"></div>
 
@@ -945,7 +947,7 @@ function renderJuntarCards(stats, totalEntrada, dedup){
   const wrap=document.getElementById('cmp-cards-wrap');
   let html='<div class="cmp-cards">';
   // Card destaque: 1ª = base do merge
-  html+='<div class="cmp-card all-in" style="cursor:default">'+
+  html+='<div class="cmp-card info-static">'+
     '<div class="n" style="color:var(--accent)">'+stats[0].linhas+'</div>'+
     '<div class="desc">🥇 <b>'+escHtml(stats[0].nome)+'</b> — prioridade máxima (dados sobrepõem os demais)</div>'+
     '</div>';
@@ -999,9 +1001,10 @@ function renderCmpCards(resumos, apenasBase, emTodas){
   // card informativo: em todas
   if(emTodas>0){
     const p=total?Math.round(emTodas/total*100):0;
-    html+='<div class="cmp-card all-in">'+
+    html+='<div class="cmp-card all-in" onclick="setFiltro(\'todas_in\')">'+
       '<div class="n">'+emTodas+' <span style="font-size:12px;font-weight:500;color:var(--text-3)">/ '+total+' ('+p+'%)</span></div>'+
       '<div class="desc">leads da base presentes em <b>todas</b> as outras planilhas</div>'+
+      '<div class="cta">ver esses leads →</div>'+
       '</div>';
   }
   html+='</div>';
