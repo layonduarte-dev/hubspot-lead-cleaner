@@ -252,6 +252,16 @@
   .cmp-card.all-in{border-left-color:var(--green);cursor:default}
   .cmp-card.all-in .n{color:var(--green)}
   .cmp-card.all-in:hover{transform:none;box-shadow:none;border-color:var(--border-2)}
+  /* toggle de modo */
+  .mode-toggle{display:inline-flex;background:var(--surface-2);border:1px solid var(--border-2);border-radius:12px;padding:4px;gap:4px;margin-top:1.1rem}
+  .mode-toggle button{background:none;border:none;color:var(--text-2);padding:9px 20px;font-size:14px;font-weight:500;border-radius:9px;transition:.18s;display:flex;align-items:center;gap:8px}
+  .mode-toggle button:hover{color:var(--text)}
+  .mode-toggle button.active{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;box-shadow:0 3px 12px rgba(109,40,217,.35)}
+  .prio-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:14px;letter-spacing:.02em}
+  .prio-1{background:linear-gradient(135deg,#f5b454,#f27d7d);color:#1a0f00}
+  .prio-2{background:var(--surface-3);color:var(--text);border:1px solid var(--border-2)}
+  .prio-n{background:var(--surface-2);color:var(--text-2);border:1px solid var(--border)}
+  .mode-hint{font-size:12px;color:var(--text-3);margin-top:.4rem;padding-left:2px}
 </style>
 </head>
 <body>
@@ -261,10 +271,17 @@
     <div class="logo-mark">🔀</div>
     <div>
       <h1>Comparador de Planilhas</h1>
-      <p>Cruze múltiplas planilhas, valide presença no HubSpot e consolide em uma única base</p>
+      <p>Cruze múltiplas planilhas, filtre leads e consolide em uma única base</p>
       <span class="badge-offline">100% offline — os arquivos são processados no seu navegador</span>
     </div>
   </div>
+
+  <!-- TOGGLE DE MODO -->
+  <div class="mode-toggle" role="tablist">
+    <button id="btn-mode-comparar" class="active" onclick="setModo('comparar')">🔍 Comparar planilhas</button>
+    <button id="btn-mode-juntar" onclick="setModo('juntar')">🔀 Juntar planilhas</button>
+  </div>
+  <div class="mode-hint" id="mode-hint">Encontre leads que estão em uma planilha mas não em outras.</div>
 
   <!-- 1. UPLOAD MULTIARQUIVOS -->
   <div class="card">
@@ -281,8 +298,8 @@
 
   <!-- 2. AÇÃO -->
   <div class="card hidden" id="card-run">
-    <h2>⚙️ Comparar</h2>
-    <p class="sub">A comparação usa a <b>chave definida em cada arquivo</b> (padrão: e-mail, normalizado). Para cada linha da base, o app checa se a mesma chave aparece em cada arquivo secundário.</p>
+    <h2 id="run-title">⚙️ Comparar</h2>
+    <p class="sub" id="run-sub">A comparação usa a <b>chave definida em cada arquivo</b> (padrão: e-mail, normalizado). Para cada linha da base, o app checa se a mesma chave aparece em cada arquivo secundário.</p>
     <div class="det-row" style="margin-bottom:.9rem;flex-direction:column;align-items:flex-start;gap:8px">
       <label><input type="checkbox" id="opt-hubspot" onchange="renderFiles()" style="accent-color:var(--accent)"> <b>Cruzar também com IDs do HubSpot</b> <span style="color:var(--text-3);font-size:12px">— use quando um dos arquivos for export do CRM (com Record ID)</span></label>
       <label><input type="checkbox" id="opt-convdata" checked style="accent-color:var(--accent)"> Converter "renovação em X meses" em data exata (DD/MM/AAAA)</label>
@@ -315,7 +332,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>Comparador de Planilhas v2.0</b> — parte do HubSpot Lead Cleaner · <a href="index.html" style="color:var(--text-2)">página principal</a></div>
+  <div class="footer"><b>Comparador de Planilhas v3.0</b> — parte do HubSpot Lead Cleaner · <a href="index.html" style="color:var(--text-2)">página principal</a></div>
 </div>
 <div id="toast-wrap" style="position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:9px;z-index:999;pointer-events:none"></div>
 
@@ -335,6 +352,25 @@ let colsBase = [];    // colunas da base marcadas para o output
 let secResumos = [];  // [{nome, ausentes, presentes, total}]
 let usouHubspot = false;
 let filtroAtual = 'todos';
+let modo = 'comparar'; // 'comparar' | 'juntar'
+let juntarResumos = [];  // stats por arquivo no modo Juntar
+
+function setModo(m){
+  modo=m;
+  document.getElementById('btn-mode-comparar').classList.toggle('active',m==='comparar');
+  document.getElementById('btn-mode-juntar').classList.toggle('active',m==='juntar');
+  const hint=document.getElementById('mode-hint');
+  hint.textContent = m==='comparar'
+    ? 'Encontre leads que estão em uma planilha mas não em outras.'
+    : 'Unifique todas as planilhas em uma só, sem repetir. Se o mesmo e-mail aparecer em várias, os dados da 1ª sobrepõem os das demais.';
+  document.getElementById('run-title').textContent = m==='comparar' ? '⚙️ Comparar' : '⚙️ Juntar';
+  document.getElementById('run-sub').innerHTML = m==='comparar'
+    ? 'A comparação usa a <b>chave definida em cada arquivo</b> (padrão: e-mail, normalizado). Para cada linha da base, o app checa se a mesma chave aparece em cada arquivo secundário.'
+    : 'A junção usa a <b>chave definida em cada arquivo</b> para deduplicar. Quando o mesmo lead aparece em várias planilhas, os campos preenchidos pela <b>1ª planilha</b> sobrepõem — as demais só preenchem o que estava vazio.';
+  document.getElementById('btn-run').textContent = m==='comparar' ? '🚀 Comparar planilhas' : '🔀 Juntar planilhas';
+  document.getElementById('card-result').classList.add('hidden');  // resultado do modo anterior não faz sentido
+  renderFiles();
+}
 
 /* ---------- utilidades ---------- */
 function norm(s){return String(s??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
@@ -511,9 +547,18 @@ function renderFiles(){
       .concat(a.headers.map(h=>'<option value="'+escHtml(h)+'"'+(h===a.chaveCol?' selected':'')+'>'+escHtml(h)+'</option>')).join('');
     const optsId=['<option value="">(nenhuma)</option>']
       .concat(a.headers.map(h=>'<option value="'+escHtml(h)+'"'+(h===a.idCol?' selected':'')+'>'+escHtml(h)+'</option>')).join('');
-    const badge=isBase
-      ?'<span class="base-badge">📌 BASE — referência</span>'
-      :'<span class="sec-badge">🔍 Comparação #'+i+'</span>';
+    // badges por modo
+    let badge;
+    if(modo==='comparar'){
+      badge=isBase
+        ?'<span class="base-badge">📌 BASE — referência</span>'
+        :'<span class="sec-badge">🔍 Comparação #'+i+'</span>';
+    }else{
+      const medalha=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+      const cls=i===0?'prio-1':(i<=2?'prio-2':'prio-n');
+      const sufixo=i===0?' (sobrepõe as demais)':'';
+      badge='<span class="prio-badge '+cls+'">'+(medalha?medalha+' ':'')+'Prioridade '+(i+1)+sufixo+'</span>';
+    }
     const moveHtml='<div class="move-btns">'+
       '<button title="Subir" onclick="moverArquivo('+i+',-1)"'+(i===0?' disabled':'')+'>▲</button>'+
       '<button title="Descer" onclick="moverArquivo('+i+',1)"'+(i===arquivos.length-1?' disabled':'')+'>▼</button>'+
@@ -521,6 +566,14 @@ function renderFiles(){
     const idSelHtml=mostrarId
       ?'<label>Coluna de ID HubSpot: <select onchange="setColSel('+i+',\'idCol\',this.value)">'+optsId+'</select></label>'
       :'';
+    // No modo Juntar TODOS os cards mostram checkboxes; no Comparar só a base
+    const mostrarChecks = modo==='juntar' || isBase;
+    const notaSec = (modo==='comparar' && !isBase)
+      ? '<div style="font-size:12px;color:var(--text-3);margin-top:.5rem">💡 No modo <b>Comparar</b>, só a chave desta planilha é usada. As colunas não vão para o relatório.</div>'
+      : '';
+    const legenda = modo==='juntar'
+      ? 'as colunas marcadas <b>de cada planilha</b> entram no consolidado (dedupe por chave)'
+      : 'as colunas marcadas da <b>base</b> entram no relatório';
     card.innerHTML=
       '<div class="file-card-head">'+
         moveHtml+
@@ -533,19 +586,20 @@ function renderFiles(){
         '<label>Chave de comparação: <select onchange="setColSel('+i+',\'chaveCol\',this.value)">'+optsChave+'</select></label>'+
         idSelHtml+
       '</div>'+
-      (isBase?'<div class="col-actions">'+
-        '<button onclick="marcarTodas('+i+',true)">marcar todas</button>·'+
-        '<button onclick="marcarTodas('+i+',false)">desmarcar todas</button>'+
-        '<span style="font-size:11.5px;color:var(--text-3);margin-left:6px">as colunas marcadas da <b>base</b> entram no relatório</span>'+
-      '</div>'+
-      '<div class="col-grid">'+
-        a.headers.map(h=>
-          '<label class="col-item"><input type="checkbox" '+(a.checked.has(h)?'checked':'')+
-          ' onchange="toggleCol('+i+',this.dataset.h,this)" data-h="'+escHtml(h)+'">'+
-          '<span>'+escHtml(h)+(h===a.renovCol?' <span class="tag-renov">🗓️ renovação</span>':'')+'</span></label>'
-        ).join('')+
-      '</div>'
-      :'<div style="font-size:12px;color:var(--text-3);margin-top:.5rem">💡 Só a chave é usada na comparação. As colunas desta planilha <b>não</b> vão para o relatório — só as da base.</div>');
+      (mostrarChecks
+        ? '<div class="col-actions">'+
+            '<button onclick="marcarTodas('+i+',true)">marcar todas</button>·'+
+            '<button onclick="marcarTodas('+i+',false)">desmarcar todas</button>'+
+            '<span style="font-size:11.5px;color:var(--text-3);margin-left:6px">'+legenda+'</span>'+
+          '</div>'+
+          '<div class="col-grid">'+
+            a.headers.map(h=>
+              '<label class="col-item"><input type="checkbox" '+(a.checked.has(h)?'checked':'')+
+              ' onchange="toggleCol('+i+',this.dataset.h,this)" data-h="'+escHtml(h)+'">'+
+              '<span>'+escHtml(h)+(h===a.renovCol?' <span class="tag-renov">🗓️ renovação</span>':'')+'</span></label>'
+            ).join('')+
+          '</div>'
+        : notaSec);
     panel.appendChild(card);
   });
   document.getElementById('card-run').classList.toggle('hidden',arquivos.length===0);
@@ -555,6 +609,11 @@ function renderFiles(){
 function setProgress(p){document.getElementById('progress-bar').classList.remove('hidden');document.getElementById('progress-fill').style.width=p+'%';}
 
 function processar(){
+  if(modo==='comparar')return comparar();
+  return juntar();
+}
+
+function comparar(){
   if(arquivos.length<2){toast('⚠️ Anexe pelo menos 2 planilhas para comparar','warn');return;}
   const base=arquivos[0], secs=arquivos.slice(1);
   if(!base.chaveCol){toast('❌ Defina a chave de comparação da base','err');return;}
@@ -695,6 +754,226 @@ function processar(){
   },60);
 }
 
+function juntar(){
+  if(arquivos.length<2){toast('⚠️ Anexe pelo menos 2 planilhas para juntar','warn');return;}
+  const semChave=arquivos.filter(a=>!a.chaveCol);
+  if(semChave.length){toast('❌ Defina a chave em: '+semChave.map(a=>a.nome).join(', '),'err');return;}
+
+  document.getElementById('btn-run').disabled=true;
+  setProgress(10);
+  setTimeout(()=>{
+    try{
+      const hoje=new Date();
+      usouHubspot=document.getElementById('opt-hubspot').checked;
+      const converterData=document.getElementById('opt-convdata').checked;
+      const incOrigem=document.getElementById('opt-origem').checked;
+
+      /* 1) Monta a lista de colunas de saída percorrendo os arquivos em ordem.
+            Match de headers por norm (case-insensitive, sem acento) — o header
+            exibido é o da PRIMEIRA planilha em que apareceu. */
+      const colsSaida=[];              // headers finais na ordem
+      const normToOut={};              // norm(header) -> header final
+      arquivos.forEach((a,idx)=>{
+        a.headers.forEach(h=>{
+          if(!a.checked.has(h))return;
+          const nk=norm(h);
+          if(!(nk in normToOut)){
+            normToOut[nk]=h;
+            colsSaida.push(h);
+            // se for a coluna de renovação e o toggle estiver ligado, insere a data calculada logo depois
+            if(converterData && h===a.renovCol && !(norm(COL_DATA_CALC) in normToOut)){
+              normToOut[norm(COL_DATA_CALC)]=COL_DATA_CALC;
+              colsSaida.push(COL_DATA_CALC);
+            }
+          }
+        });
+      });
+      if(!colsSaida.length){toast('⚠️ Marque ao menos uma coluna em algum arquivo','warn');document.getElementById('btn-run').disabled=false;return;}
+
+      /* 2) Cruzamento HubSpot (opcional) */
+      let setHubspot=null;
+      if(usouHubspot){
+        setHubspot=new Set();
+        arquivos.forEach(a=>{
+          if(!a.idCol)return;
+          a.rows.forEach(r=>{
+            const id=String(r[a.idCol]??'').trim();
+            const k=norm(r[a.chaveCol]);
+            if(id&&k)setHubspot.add(k);
+          });
+        });
+      }
+      setProgress(35);
+
+      /* 3) Merge com prioridade: 1ª planilha sobrepõe as demais */
+      const byKey={};        // norm(chave) -> {out, fontes:Set}
+      const semChaveRows=[]; // linhas sem chave preenchida
+      const statsPorArq=arquivos.map(a=>({nome:a.nome,linhas:a.rows.length,novos:0,camposPreenchidos:0}));
+
+      arquivos.forEach((a,idx)=>{
+        // map headers do arquivo → coluna de saída correspondente
+        const mapCols={};
+        a.headers.forEach(h=>{
+          if(!a.checked.has(h))return;
+          const outCol=normToOut[norm(h)];
+          if(outCol)mapCols[h]=outCol;
+        });
+        a.rows.forEach(r=>{
+          const k=norm(r[a.chaveCol]);
+          if(!k){
+            // linha sem chave → segrega
+            const o={};
+            colsSaida.forEach(c=>o[c]='');
+            Object.entries(mapCols).forEach(([h,oc])=>{o[oc]=sanitizeFormula(r[h]??'')??'';});
+            if(converterData&&a.renovCol&&a.checked.has(a.renovCol)){
+              const d=converterPeriodo(r[a.renovCol],hoje);
+              o[COL_DATA_CALC]=d||'';
+            }
+            o._fontes=[a.nome];
+            o._origemIdx=idx;
+            semChaveRows.push(o);
+            return;
+          }
+          if(!(k in byKey)){
+            // novo registro
+            const o={};
+            colsSaida.forEach(c=>o[c]='');
+            Object.entries(mapCols).forEach(([h,oc])=>{o[oc]=sanitizeFormula(r[h]??'')??'';});
+            if(converterData&&a.renovCol&&a.checked.has(a.renovCol)){
+              const d=converterPeriodo(r[a.renovCol],hoje);
+              o[COL_DATA_CALC]=d||'';
+            }
+            byKey[k]={out:o,fontes:new Set([a.nome]),origemIdx:idx};
+            if(idx>0)statsPorArq[idx].novos++;
+          }else{
+            // já existe: preenche APENAS campos vazios (arquivo anterior tem prioridade)
+            const entry=byKey[k];
+            entry.fontes.add(a.nome);
+            Object.entries(mapCols).forEach(([h,oc])=>{
+              const val=sanitizeFormula(r[h]??'')??'';
+              if((entry.out[oc]===''||entry.out[oc]==null)&&val!==''){
+                entry.out[oc]=val;
+                statsPorArq[idx].camposPreenchidos++;
+              }
+            });
+            // Data calculada: só preenche se vazio
+            if(converterData&&a.renovCol&&a.checked.has(a.renovCol)&&!entry.out[COL_DATA_CALC]){
+              const d=converterPeriodo(r[a.renovCol],hoje);
+              if(d){entry.out[COL_DATA_CALC]=d;statsPorArq[idx].camposPreenchidos++;}
+            }
+          }
+        });
+      });
+      setProgress(70);
+
+      /* 4) Constrói baseRows finais */
+      baseRows=[];
+      let datasConv=0;
+      const finalCols=[...colsSaida,'Fontes'];
+      if(usouHubspot)finalCols.push('Status HubSpot');
+      if(incOrigem)finalCols.push('Arquivo de Origem (1º)');
+
+      Object.entries(byKey).forEach(([k,entry])=>{
+        const o=entry.out;
+        o['Fontes']=[...entry.fontes].join(', ');
+        if(usouHubspot){
+          o['Status HubSpot']=setHubspot.has(k)?'No HubSpot':'Fora do HubSpot';
+          o._foraHubspot=!setHubspot.has(k);
+        }
+        if(incOrigem)o['Arquivo de Origem (1º)']=arquivos[entry.origemIdx].nome;
+        o._origemIdx=entry.origemIdx;
+        o._nFontes=entry.fontes.size;
+        if(o[COL_DATA_CALC])datasConv++;
+        baseRows.push(o);
+      });
+      // linhas sem chave: também vão para o consolidado, marcadas
+      semChaveRows.forEach(o=>{
+        o['Fontes']=o._fontes.join(', ');
+        if(usouHubspot){o['Status HubSpot']='—';o._foraHubspot=false;}
+        if(incOrigem)o['Arquivo de Origem (1º)']=arquivos[o._origemIdx].nome;
+        o._nFontes=1;
+        o._semChave=true;
+        baseRows.push(o);
+      });
+      setProgress(88);
+
+      /* 5) Estatísticas */
+      const totalEntrada=arquivos.reduce((s,a)=>s+a.rows.length,0);
+      const linhasFinal=baseRows.length;
+      const dedup=totalEntrada-linhasFinal;
+      document.getElementById('st-base').textContent=totalEntrada;
+      document.getElementById('st-base').nextElementSibling.textContent='Linhas de entrada (soma)';
+      document.getElementById('st-chaves').textContent=linhasFinal;
+      document.getElementById('st-chaves').nextElementSibling.textContent='Linhas no consolidado';
+      document.getElementById('st-todas').textContent=dedup>=0?dedup:0;
+      document.getElementById('st-todas').nextElementSibling.textContent='Duplicatas mescladas';
+      document.getElementById('st-solobase').textContent=semChaveRows.length;
+      document.getElementById('st-solobase').nextElementSibling.textContent='Linhas sem chave';
+      const dbox=document.getElementById('st-datas-box');
+      if(converterData&&arquivos.some(a=>a.renovCol&&a.checked.has(a.renovCol))){
+        dbox.classList.remove('hidden');document.getElementById('st-datas').textContent=datasConv;
+      }else dbox.classList.add('hidden');
+
+      /* 6) Cards de resumo por arquivo */
+      renderJuntarCards(statsPorArq, totalEntrada, dedup);
+
+      /* 7) Alerta */
+      const alerta=document.getElementById('alerta-dup');
+      if(semChaveRows.length){
+        alerta.classList.remove('hidden');
+        alerta.innerHTML='⚠️ <b>'+semChaveRows.length+' linha'+(semChaveRows.length>1?'s':'')+'</b> não tinha'+(semChaveRows.length>1?'m':'')+' valor na coluna-chave e foram mantidas no final (não puderam ser deduplicadas). Filtre por "Sem chave" para revisar.';
+      }else alerta.classList.add('hidden');
+
+      /* 8) Chips de filtro */
+      renderFiltrosJuntar();
+      window._colsSaida=finalCols;
+      setFiltro('todos');
+      document.getElementById('card-result').classList.remove('hidden');
+      document.getElementById('card-result').scrollIntoView({behavior:'smooth'});
+      setProgress(100);
+      toast('✅ Junção concluída · '+linhasFinal+' linhas consolidadas de '+totalEntrada+' de entrada','ok');
+    }catch(err){
+      console.error(err);toast('❌ Erro: '+err.message,'err');
+    }finally{
+      document.getElementById('btn-run').disabled=false;
+      setTimeout(()=>document.getElementById('progress-bar').classList.add('hidden'),800);
+    }
+  },60);
+}
+
+function renderJuntarCards(stats, totalEntrada, dedup){
+  const wrap=document.getElementById('cmp-cards-wrap');
+  let html='<div class="cmp-cards">';
+  // Card destaque: 1ª = base do merge
+  html+='<div class="cmp-card all-in" style="cursor:default">'+
+    '<div class="n" style="color:var(--accent)">'+stats[0].linhas+'</div>'+
+    '<div class="desc">🥇 <b>'+escHtml(stats[0].nome)+'</b> — prioridade máxima (dados sobrepõem os demais)</div>'+
+    '</div>';
+  // Card por secundário
+  stats.slice(1).forEach((s,i)=>{
+    const idx=i+1;
+    html+='<div class="cmp-card" onclick="setFiltro(\'from_'+idx+'\')">'+
+      '<div class="n">'+s.novos+' <span style="font-size:12px;font-weight:500;color:var(--text-3)">novos</span></div>'+
+      '<div class="desc"><b>'+escHtml(s.nome)+'</b> trouxe '+s.novos+' lead'+(s.novos!==1?'s':'')+' novo'+(s.novos!==1?'s':'')+' e preencheu '+s.camposPreenchidos+' campo'+(s.camposPreenchidos!==1?'s':'')+' vazio'+(s.camposPreenchidos!==1?'s':'')+' em leads que já existiam</div>'+
+      '<div class="cta">ver leads adicionados por este arquivo →</div>'+
+      '</div>';
+  });
+  html+='</div>';
+  wrap.innerHTML=html;
+}
+
+function renderFiltrosJuntar(){
+  const wrap=document.getElementById('filter-chips');
+  let html='<button class="fchip on" data-f="todos" onclick="setFiltro(\'todos\')">Todos ('+baseRows.length+')</button>';
+  html+='<button class="fchip" data-f="multi" onclick="setFiltro(\'multi\')">🔗 Em várias planilhas</button>';
+  arquivos.slice(1).forEach((a,i)=>{
+    const idx=i+1;
+    html+='<button class="fchip" data-f="from_'+idx+'" onclick="setFiltro(\'from_'+idx+'\')">➕ Adicionados por '+escHtml(a.nome.length>22?a.nome.slice(0,20)+'…':a.nome)+'</button>';
+  });
+  if(usouHubspot)html+='<button class="fchip" data-f="hs_fora" onclick="setFiltro(\'hs_fora\')">🚫 Fora do HubSpot</button>';
+  wrap.innerHTML=html;
+}
+
 function renderCmpCards(resumos, apenasBase, emTodas){
   const wrap=document.getElementById('cmp-cards-wrap');
   const total=baseRows.length;
@@ -748,11 +1027,16 @@ function setFiltro(f){
   renderTabela();
 }
 function linhasFiltradas(){
+  // filtros do modo Comparar
   if(filtroAtual==='solo')return baseRows.filter(r=>r._solobase);
   if(filtroAtual==='todas_in')return baseRows.filter(r=>r.Situação==='Em todas');
   if(filtroAtual==='hs_fora')return baseRows.filter(r=>r._foraHubspot);
   const m=filtroAtual.match(/^aus_(\d+)$/);
   if(m)return baseRows.filter(r=>r._presencas&&r._presencas[+m[1]]===false);
+  // filtros do modo Juntar
+  if(filtroAtual==='multi')return baseRows.filter(r=>(r._nFontes||0)>1);
+  const mf=filtroAtual.match(/^from_(\d+)$/);
+  if(mf)return baseRows.filter(r=>r._origemIdx===+mf[1]);
   return baseRows;
 }
 function renderTabela(){
@@ -791,9 +1075,12 @@ function baixarCSV(){
   const esc=v=>{v=String(v??'');return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
   const csv=cols.map(esc).join(',')+'\n'+rows.map(r=>cols.map(c=>esc(r[c])).join(',')).join('\n');
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
-  const nomeFiltro=filtroAtual==='solo'?'apenas_na_base':filtroAtual==='todas_in'?'em_todas':filtroAtual.startsWith('aus_')?'faltando_em_'+arquivos[+filtroAtual.split('_')[1]+1].nome.replace(/\.[^.]+$/,''):'todas';
+  const nomeFiltro = modo==='juntar'
+    ? (filtroAtual==='todos'?'juntadas':filtroAtual==='multi'?'em_varias':filtroAtual.startsWith('from_')?'de_'+arquivos[+filtroAtual.split('_')[1]].nome.replace(/\.[^.]+$/,''):filtroAtual==='hs_fora'?'fora_hubspot':filtroAtual)
+    : (filtroAtual==='solo'?'apenas_na_base':filtroAtual==='todas_in'?'em_todas':filtroAtual.startsWith('aus_')?'faltando_em_'+arquivos[+filtroAtual.split('_')[1]+1].nome.replace(/\.[^.]+$/,''):'todas');
+  const prefixo = modo==='juntar' ? 'juntadas' : 'comparador';
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='comparador_'+nomeFiltro+'_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+  a.download=prefixo+'_'+nomeFiltro+'_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
   toast('📦 CSV baixado ('+rows.length+' linhas)','ok');
 }
 function exportarGoogleSheets(){
