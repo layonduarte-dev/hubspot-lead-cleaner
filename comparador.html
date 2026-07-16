@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comparador de Planilhas — HubSpot Lead Cleaner</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjOGI1Y2Y2Ii8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjNmQyOGQ5Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNyIgZmlsbD0iIzBkMGExNyIvPjxyZWN0IHg9IjYiIHk9IjgiIHdpZHRoPSIxNCIgaGVpZ2h0PSIzIiByeD0iMSIgZmlsbD0idXJsKCNnKSIvPjxyZWN0IHg9IjYiIHk9IjEzIiB3aWR0aD0iMTQiIGhlaWdodD0iMyIgcng9IjEiIGZpbGw9InVybCgjZykiIG9wYWNpdHk9Ii42Ii8+PHJlY3QgeD0iNiIgeT0iMTgiIHdpZHRoPSIxNCIgaGVpZ2h0PSIzIiByeD0iMSIgZmlsbD0idXJsKCNnKSIgb3BhY2l0eT0iLjM1Ii8+PHBhdGggZD0iTTI0IDZsMS4yIDIuOEwyOCAxMGwtMi44IDEuMkwyNCAxNGwtMS4yLTIuOEwyMCAxMGwyLjgtMS4yeiIgZmlsbD0iI2M0YjVmZCIvPjxwYXRoIGQ9Ik0yMiAyMGwuNyAxLjYgMS42LjctMS42LjctLjcgMS42LS43LTEuNi0xLjYtLjcgMS42LS43eiIgZmlsbD0iI2M0YjVmZCIgb3BhY2l0eT0iLjYiLz48cGF0aCBkPSJNMTAgMjRsMiAyIDQtNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjYTc4YmZhIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg==">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+
+  :root{
+    --bg:#0a0812;--bg-glow:#150f26;--surface:#141021;--surface-2:#1d1731;--surface-3:#262040;
+    --border:#292148;--border-2:#3b3163;--text:#EDE9FA;--text-2:#A79DCB;--text-3:#6F6596;
+    --accent:#8B5CF6;--accent-2:#6D28D9;--accent-soft:rgba(139,92,246,.14);--accent-glow:rgba(139,92,246,.35);
+    --green:#3DD9A4;--amber:#F5B454;--red:#F27D7D;--blue:#7EB4F2;
+    --bg-card:#141021;--text-1:#EDE9FA;
+    --radius:16px;--radius-s:10px;
+    --shadow:0 4px 24px rgba(0,0,0,.45);
+    --shadow-accent:0 6px 28px rgba(109,40,217,.35);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--text);line-height:1.6;padding:2.2rem 1rem 3rem;min-height:100vh;
+    background-image:radial-gradient(1100px 500px at 50% -180px,rgba(109,40,217,.22),transparent 65%),radial-gradient(700px 400px at 90% 15%,rgba(139,92,246,.07),transparent 60%);
+    background-attachment:fixed;
+  }
+  ::selection{background:var(--accent);color:#fff}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:6px;border:2px solid var(--bg)}
+  ::-webkit-scrollbar-thumb:hover{background:var(--accent-2)}
+  .app{max-width:980px;margin:0 auto}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  @keyframes pop{0%{transform:scale(.92);opacity:0}100%{transform:scale(1);opacity:1}}
+  @keyframes shimmer{0%{background-position:-450px 0}100%{background-position:450px 0}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  /* ---------- header ---------- */
+  .header{display:flex;align-items:flex-start;gap:16px;animation:fadeUp .5s ease both}
+  .logo-mark{flex:0 0 auto;width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--accent) 0%,var(--accent-2) 100%);display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:var(--shadow-accent)}
+  .header h1{font-size:27px;font-weight:700;letter-spacing:-.02em;background:linear-gradient(90deg,#fff 20%,#c4b5fd 90%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .header p{font-size:14.5px;color:var(--text-2);margin-top:3px}
+  .badge-offline{display:inline-flex;align-items:center;gap:7px;font-size:12px;background:var(--surface);color:var(--text-2);padding:5px 13px;border-radius:20px;margin-top:10px;border:1px solid var(--border)}
+  .badge-offline::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2.4s ease infinite}
+  /* ---------- cards ---------- */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1.05rem;margin-top:1.2rem;box-shadow:var(--shadow);animation:fadeUp .5s ease both;transition:border-color .2s}
+  .card:hover{border-color:var(--border-2)}
+  .card h2{font-size:15.5px;font-weight:600;margin-bottom:.45rem;display:flex;align-items:center;gap:9px;letter-spacing:-.01em}
+  .card .sub{font-size:13px;color:var(--text-2);margin-bottom:1rem}
+  /* ---------- drop zone ---------- */
+  .drop-zone{border:2px dashed var(--border-2);border-radius:12px;padding:2.4rem 1.5rem;text-align:center;cursor:pointer;transition:.2s;background:rgba(139,92,246,.03)}
+  .drop-zone:hover,.drop-zone.dragover{background:var(--accent-soft);border-color:var(--accent);box-shadow:inset 0 0 40px rgba(139,92,246,.08)}
+  .drop-zone.dragover{transform:scale(1.008)}
+  .drop-zone .ico{font-size:38px;display:block;margin-bottom:.6rem;opacity:.75;filter:drop-shadow(0 4px 14px rgba(139,92,246,.4))}
+  .drop-zone p{font-size:15px;color:var(--text-2)}
+  .drop-zone small{font-size:12px;color:var(--text-3)}
+  /* ---------- inputs ---------- */
+  input[type=text],textarea,select{width:100%;padding:10px 13px;font-size:14px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:var(--radius-s);color:var(--text);font-family:inherit;transition:border-color .15s,box-shadow .15s}
+  input[type=text]:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  input::placeholder,textarea::placeholder{color:var(--text-3)}
+  textarea{min-height:80px;resize:vertical;margin-top:.6rem}
+  select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23A79DCB' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+  button{font-family:inherit;cursor:pointer}
+  .btn{padding:0 1.1rem;height:40px;border:1px solid var(--border-2);border-radius:var(--radius-s);background:var(--surface-2);color:var(--text);font-size:14px;transition:.15s;flex:0 0 auto}
+  .btn:hover{background:var(--surface-3);border-color:var(--accent-2)}
+  /* ---------- chips ---------- */
+  .prop-grid{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{padding:7px 14px;font-size:13px;border:1.5px solid var(--border-2);border-radius:20px;background:var(--surface-2);color:var(--text-2);transition:.15s;user-select:none;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+  .chip:hover{border-color:var(--accent);color:var(--text);transform:translateY(-1px)}
+  .chip.on{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;border-color:transparent;box-shadow:0 3px 14px rgba(109,40,217,.35)}
+  .chip.locked{opacity:.75;cursor:not-allowed}
+  .chip .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.5}
+  .chip.on .dot{opacity:1;box-shadow:0 0 6px #fff}
+  .preserve-row{display:flex;gap:8px}
+  .preserve-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .tag{background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:4px 10px;font-size:13px;color:var(--text-2);display:flex;align-items:center;gap:8px;animation:pop .2s ease both}
+  .tag button{background:none;border:none;color:var(--text-3);font-size:16px;line-height:1;padding:0}
+  .tag button:hover{color:var(--red)}
+  /* ---------- run button + progress ---------- */
+  .btn-run{width:100%;padding:.95rem;font-size:16px;font-weight:600;background:linear-gradient(135deg,var(--accent) 0%,var(--accent-2) 100%);color:#fff;border:none;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:9px;transition:.2s;box-shadow:var(--shadow-accent);letter-spacing:.01em;animation:fadeUp .5s ease both}
+  .btn-run:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 10px 34px rgba(109,40,217,.5);filter:brightness(1.08)}
+  .btn-run:active:not(:disabled){transform:translateY(0)}
+  .btn-run:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
+  .progress-bar{height:6px;background:var(--surface-2);border-radius:6px;overflow:hidden;margin:1rem 0}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--accent-2),var(--accent),#c4b5fd,var(--accent));background-size:450px 100%;animation:shimmer 1.4s linear infinite;width:0;transition:width .3s;border-radius:6px}
+  /* ---------- stats ---------- */
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:12px;margin-bottom:1.2rem}
+  .stat{background:var(--surface-2);border-radius:12px;padding:.95rem 1.1rem;border:1px solid var(--border);animation:pop .35s ease both}
+  .stat-click{cursor:pointer;transition:.18s}
+  .stat-click:hover{background:var(--surface-3);border-color:var(--accent);transform:translateY(-2px);box-shadow:0 6px 20px rgba(109,40,217,.22)}
+  .stat-click:after{content:"ver detalhes ↗";display:block;font-size:10px;color:var(--accent);margin-top:5px;opacity:0;transition:.18s}
+  .stat-click:hover:after{opacity:.9}
+  .stat-label{font-size:11.5px;color:var(--text-2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em;font-weight:500}
+  .stat-value{font-size:26px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .stat-value.green{color:var(--green)}.stat-value.amber{color:var(--amber)}.stat-value.red{color:var(--red)}
+  /* ---------- modals ---------- */
+  .modal-overlay{position:fixed;inset:0;background:rgba(5,3,12,.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:1000;padding:1.5rem;animation:pop .18s ease both}
+  .modal-box{background:var(--surface);border:1px solid var(--border-2);border-radius:var(--radius);max-width:960px;width:100%;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.6)}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:1.1rem 1.4rem;border-bottom:1px solid var(--border)}
+  .modal-head h3{font-size:15.5px;font-weight:600}
+  .modal-close{background:none;border:none;font-size:22px;color:var(--text-2);cursor:pointer;line-height:1;padding:2px 8px;border-radius:8px;transition:.15s}
+  .modal-close:hover{background:var(--surface-2);color:var(--red)}
+  .modal-body{overflow:auto;padding:1rem 1.4rem 1.4rem}
+  /* ---------- boxes ---------- */
+  .detect-box{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:.95rem 1.1rem;margin-bottom:1rem;font-size:13px;color:var(--text-2);line-height:1.85}
+  .detect-box strong{color:var(--text)}
+  .ai-box{background:linear-gradient(160deg,var(--surface-2),rgba(109,40,217,.1));border:1px solid var(--border-2);border-radius:12px;padding:1.05rem 1.15rem;margin-bottom:1rem}
+  .ai-box h3{font-size:14px;font-weight:600;margin-bottom:.4rem}
+  .ai-box p{font-size:13px;color:var(--text-2);margin-bottom:.7rem}
+  .ai-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .ai-row input{flex:1;min-width:220px}
+  .ai-row select{width:auto}
+  .ai-status{font-size:13px;margin-top:.6rem;color:var(--text-2)}
+  /* ---------- tables ---------- */
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;max-height:480px;overflow-y:auto;background:var(--surface)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{background:var(--surface-2);padding:9px 13px;text-align:left;font-weight:600;font-size:11.5px;color:var(--text-2);border-bottom:1px solid var(--border-2);white-space:nowrap;position:sticky;top:0;text-transform:uppercase;letter-spacing:.04em;z-index:1}
+  td{padding:8px 13px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:230px;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:var(--accent-soft)}
+  /* ---------- tabs & downloads ---------- */
+  .tab-row{display:flex;gap:5px;margin-bottom:.9rem;flex-wrap:wrap;background:var(--surface-2);padding:5px;border-radius:12px;width:fit-content;border:1px solid var(--border)}
+  .tab{padding:7px 18px;font-size:13.5px;border:none;border-radius:8px;background:transparent;color:var(--text-2);transition:.15s;font-weight:500}
+  .tab:hover{color:var(--text)}
+  .tab.active{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;box-shadow:0 2px 10px rgba(109,40,217,.4)}
+  .btn-dl{padding:.55rem 1.1rem;font-size:13px;border:1px solid var(--border-2);border-radius:var(--radius-s);background:var(--surface-2);color:var(--text);display:inline-flex;align-items:center;gap:6px;transition:.15s}
+  .btn-dl:hover{background:var(--surface-3);border-color:var(--accent);transform:translateY(-1px)}
+  .log-box{background:#0c0917;border:1px solid var(--border);border-radius:12px;padding:1.15rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--text-2);white-space:pre-wrap;line-height:1.85;max-height:380px;overflow-y:auto}
+  .corr{font-size:13px;color:var(--text-2);margin-bottom:.8rem}
+  .corr code{background:var(--surface-2);border:1px solid var(--border);padding:2px 7px;border-radius:6px;font-size:12px;color:#c4b5fd}
+  .hidden{display:none}
+  /* ---------- colmap ---------- */
+  .colmap-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)}
+  .colmap-row:last-child{border-bottom:none}
+  .colmap-h{flex:1;font-size:14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+  .colmap-h strong{color:var(--text);word-break:break-word}
+  .colmap-ex{font-size:11px;color:var(--text-3)}
+  .colmap-sel{flex:0 0 200px;width:200px;height:38px;padding:0 32px 0 10px;font-size:13px}
+  .colmap-outros-sel{flex:0 0 180px;width:180px;height:38px;padding:0 32px 0 10px;font-size:13px;display:none}
+  #colmap-list.outros-active .colmap-outros-sel{display:block}
+  .colmap-outros-sel.active{border-color:var(--accent);background-color:var(--accent-soft)}
+  /* ---------- busca na tabela ---------- */
+  .filter-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:.6rem;flex-wrap:wrap}
+  .search-wrap{position:relative;flex:1;min-width:200px;max-width:340px}
+  .search-wrap input{padding-left:34px;height:38px}
+  .search-wrap::before{content:"🔍";position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:13px;opacity:.55;pointer-events:none}
+  .filter-count{font-size:12px;color:var(--text-3);white-space:nowrap}
+  /* ---------- histórico ---------- */
+  .hist-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:.4rem}
+  .hist-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .hist-empty{text-align:center;padding:2rem 1rem;color:var(--text-3);font-size:13.5px;border:1.5px dashed var(--border-2);border-radius:12px}
+  .hist-list{display:flex;flex-direction:column;gap:9px}
+  .hist-item{display:flex;align-items:center;gap:14px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:.85rem 1.05rem;transition:.18s;animation:fadeUp .3s ease both;flex-wrap:wrap}
+  .hist-item:hover{border-color:var(--accent);box-shadow:0 4px 18px rgba(109,40,217,.18)}
+  .hist-ico{width:38px;height:38px;flex:0 0 auto;border-radius:10px;background:var(--accent-soft);border:1px solid var(--border-2);display:flex;align-items:center;justify-content:center;font-size:17px}
+  .hist-info{flex:1;min-width:170px}
+  .hist-file{font-size:14px;font-weight:600;color:var(--text);word-break:break-all}
+  .hist-date{font-size:11.5px;color:var(--text-3);margin-top:1px}
+  .hist-stats{display:flex;gap:6px;flex-wrap:wrap}
+  .hist-pill{font-size:11px;padding:3px 9px;border-radius:20px;background:var(--surface-3);border:1px solid var(--border-2);color:var(--text-2);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .hist-pill b{font-weight:700}
+  .hist-pill.ok b{color:var(--green)}
+  .hist-pill.bad b{color:var(--red)}
+  .hist-pill.dup b{color:var(--amber)}
+  .hist-btns{display:flex;gap:6px}
+  .hist-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--text-2);font-size:14px;display:flex;align-items:center;justify-content:center;transition:.15s}
+  .hist-btn:hover{border-color:var(--accent);color:var(--text);background:var(--surface-3)}
+  .hist-btn.del:hover{border-color:var(--red);color:var(--red)}
+  .hist-badge{font-size:11px;font-weight:600;background:var(--accent-soft);color:#c4b5fd;border:1px solid var(--border-2);border-radius:20px;padding:3px 10px}
+  .hist-head-btn{display:flex;align-items:center;gap:8px;background:none;border:none;cursor:pointer;padding:2px 4px;margin:-2px -4px;border-radius:8px;transition:.15s;color:var(--text)}
+  .hist-head-btn:hover{background:var(--surface-2)}
+  .hist-head-btn h2{margin:0;color:inherit}
+  .hist-chevron{display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:var(--text-3);transition:transform .22s ease}
+  #history-card.collapsed .hist-chevron{transform:rotate(-90deg)}
+  .hist-body{display:grid;grid-template-rows:1fr;transition:grid-template-rows .25s ease,opacity .2s ease,margin-top .25s ease;margin-top:.2rem;opacity:1}
+  .hist-body>div{overflow:hidden}
+  #history-card.collapsed .hist-body{grid-template-rows:0fr;opacity:0;margin-top:0}
+  /* ---------- toasts ---------- */
+  .toast-wrap{position:fixed;bottom:22px;right:22px;z-index:2000;display:flex;flex-direction:column;gap:9px;pointer-events:none}
+  .toast{pointer-events:auto;display:flex;align-items:center;gap:10px;background:var(--surface-3);border:1px solid var(--border-2);border-left:3px solid var(--accent);border-radius:12px;padding:.75rem 1.05rem;font-size:13.5px;color:var(--text);box-shadow:0 10px 34px rgba(0,0,0,.55);min-width:250px;max-width:360px;opacity:0;transform:translateX(24px);transition:all .28s cubic-bezier(.2,.8,.3,1)}
+  .toast.show{opacity:1;transform:none}
+  .toast.ok{border-left-color:var(--green)}
+  .toast.warn{border-left-color:var(--amber)}
+  .toast.err{border-left-color:var(--red)}
+  .footer{text-align:center;font-size:12px;color:var(--text-3);margin-top:2.4rem;padding-top:1.5rem;border-top:1px solid var(--border)}
+  .footer b{color:var(--text-2)}
+  @media(max-width:560px){body{padding:1.2rem .7rem 2rem}.card{padding:1.1rem}.hist-item{gap:9px}.toast-wrap{left:14px;right:14px}.toast{max-width:none;width:100%}}
+
+
+  /* ---------- estilos exclusivos do Comparador ---------- */
+  .nav-back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);padding:6px 14px;border-radius:20px;margin-bottom:1.1rem;transition:.18s}
+  .nav-back:hover{border-color:var(--accent);color:var(--text)}
+  .file-card{background:var(--surface-2);border:1px solid var(--border-2);border-radius:12px;padding:1rem 1.1rem;margin-top:.9rem;animation:pop .3s ease both}
+  .file-card-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .file-card-head .fname{font-weight:600;font-size:14px}
+  .file-card-head .fmeta{font-size:12px;color:var(--text-3)}
+  .file-remove{margin-left:auto;background:none;border:1px solid var(--border-2);color:var(--text-3);border-radius:8px;padding:3px 10px;font-size:12px;transition:.15s}
+  .file-remove:hover{border-color:var(--red);color:var(--red)}
+  .det-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:.7rem;font-size:12.5px}
+  .det-row label{display:flex;align-items:center;gap:7px;color:var(--text-2)}
+  .det-row select{width:auto;min-width:180px;padding:6px 9px;font-size:12.5px}
+  .det-badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:14px;border:1px solid var(--border-2)}
+  .det-badge.ok{background:rgba(61,217,164,.12);color:var(--green);border-color:rgba(61,217,164,.35)}
+  .det-badge.warn{background:rgba(245,180,84,.12);color:var(--amber);border-color:rgba(245,180,84,.35)}
+  .col-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:5px 14px;margin-top:.8rem}
+  .col-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-2);padding:4px 6px;border-radius:8px;transition:background .12s;cursor:pointer;user-select:none}
+  .col-item:hover{background:var(--accent-soft)}
+  .col-item input{accent-color:var(--accent);width:15px;height:15px;flex:0 0 auto}
+  .col-item .tag-renov{font-size:10px;color:var(--amber)}
+  .col-actions{display:flex;gap:8px;margin-top:.6rem}
+  .col-actions button{font-size:11.5px;background:none;border:none;color:var(--accent);padding:2px 4px}
+  .col-actions button:hover{text-decoration:underline}
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:.4rem}
+  .stat-box{background:var(--surface-2);border:1px solid var(--border-2);border-radius:12px;padding:.85rem;text-align:center}
+  .stat-box .num{font-size:24px;font-weight:700}
+  .stat-box .lbl{font-size:11.5px;color:var(--text-3);margin-top:2px}
+  .stat-box.ok .num{color:var(--green)} .stat-box.warn .num{color:var(--amber)} .stat-box.err .num{color:var(--red)} .stat-box.info .num{color:var(--blue)}
+  .filter-chips{display:flex;gap:8px;flex-wrap:wrap;margin:.8rem 0 .2rem}
+  .fchip{font-size:12.5px;padding:6px 14px;border-radius:20px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text-2);transition:.15s}
+  .fchip.on{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;border-color:transparent}
+  .tbl-wrap{overflow:auto;max-height:440px;border:1px solid var(--border);border-radius:12px;margin-top:.8rem}
+  .tbl-wrap table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .tbl-wrap th{position:sticky;top:0;background:var(--surface-3);color:var(--text);text-align:left;padding:8px 11px;font-weight:600;white-space:nowrap;z-index:1}
+  .tbl-wrap td{padding:7px 11px;border-top:1px solid var(--border);color:var(--text-2);white-space:nowrap;max-width:320px;overflow:hidden;text-overflow:ellipsis}
+  .tbl-wrap tr:hover td{background:var(--accent-soft)}
+  .pill{font-size:10.5px;font-weight:600;padding:2px 9px;border-radius:12px}
+  .pill.in{background:rgba(61,217,164,.14);color:var(--green)} .pill.out{background:rgba(242,125,125,.14);color:var(--red)}
+  .hidden{display:none!important}
+  .btns-export{display:flex;gap:10px;flex-wrap:wrap;margin-top:1rem}
+  .alerta-fora{border:1px solid rgba(242,125,125,.4);background:rgba(242,125,125,.07);border-radius:12px;padding:.9rem 1.1rem;margin-top:1rem;font-size:13.5px;color:var(--text-2)}
+  .alerta-fora b{color:var(--red)}
+</style>
+</head>
+<body>
+<div class="app">
+  <a class="nav-back" href="index.html">← Voltar ao Lead Cleaner</a>
+  <div class="header">
+    <div class="logo-mark">🔀</div>
+    <div>
+      <h1>Comparador de Planilhas</h1>
+      <p>Cruze múltiplas planilhas, valide presença no HubSpot e consolide em uma única base</p>
+      <span class="badge-offline">100% offline — os arquivos são processados no seu navegador</span>
+    </div>
+  </div>
+
+  <!-- 1. UPLOAD MULTIARQUIVOS -->
+  <div class="card">
+    <h2>📤 Planilhas de entrada</h2>
+    <p class="sub">Anexe duas ou mais planilhas (.csv ou .xlsx). Pelo menos uma deve conter a coluna de <b>ID do HubSpot</b> (ex.: export do CRM) para o cruzamento.</p>
+    <div class="drop-zone" id="drop-zone" tabindex="0" role="button">
+      <span class="ico">🗂️</span>
+      <p>Arraste vários arquivos aqui ou clique para selecionar</p>
+      <small>Suporta .csv (UTF-8/Latin1) e .xlsx — múltiplos arquivos de uma vez</small>
+    </div>
+    <input type="file" id="file-input" accept=".csv,.xlsx,.xls" multiple class="hidden">
+    <div id="files-panel"></div>
+  </div>
+
+  <!-- 2. AÇÃO -->
+  <div class="card hidden" id="card-run">
+    <h2>⚙️ Processamento</h2>
+    <p class="sub">O processamento cruza os e-mails com a base HubSpot, converte a coluna de renovação em data exata (DD/MM/AAAA) e consolida tudo mantendo só as colunas marcadas.</p>
+    <div class="det-row" style="margin-bottom:.9rem">
+      <label><input type="checkbox" id="opt-origem" checked style="accent-color:var(--accent)"> Incluir coluna "Arquivo de Origem"</label>
+      <label><input type="checkbox" id="opt-status" checked style="accent-color:var(--accent)"> Incluir coluna "Status HubSpot"</label>
+    </div>
+    <button class="btn-run" id="btn-run" onclick="processar()">🚀 Processar e Comparar</button>
+    <div class="progress-bar hidden" id="progress-bar" style="margin-top:.9rem;height:8px;background:var(--surface-2);border-radius:6px;overflow:hidden"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+
+  <!-- 3. RESULTADO -->
+  <div class="card hidden" id="card-result">
+    <h2>📊 Resultado</h2>
+    <div class="stat-grid">
+      <div class="stat-box info"><div class="num" id="st-total">0</div><div class="lbl">Linhas processadas</div></div>
+      <div class="stat-box ok"><div class="num" id="st-in">0</div><div class="lbl">Encontradas no HubSpot</div></div>
+      <div class="stat-box err"><div class="num" id="st-out">0</div><div class="lbl">Fora do HubSpot</div></div>
+      <div class="stat-box warn"><div class="num" id="st-datas">0</div><div class="lbl">Datas de renovação calculadas</div></div>
+    </div>
+    <div class="alerta-fora hidden" id="alerta-fora"></div>
+    <div class="filter-chips">
+      <button class="fchip on" data-f="todos" onclick="setFiltro('todos')">Todas as linhas</button>
+      <button class="fchip" data-f="fora" onclick="setFiltro('fora')">⚠️ Fora do HubSpot</button>
+      <button class="fchip" data-f="dentro" onclick="setFiltro('dentro')">✅ No HubSpot</button>
+    </div>
+    <div class="tbl-wrap"><table id="tbl-result"><thead></thead><tbody></tbody></table></div>
+    <div id="tbl-count" style="font-size:12px;color:var(--text-3);margin-top:.5rem"></div>
+    <div class="btns-export">
+      <button class="btn-dl" onclick="exportarGoogleSheets()">📊 Exportar para o Google Sheets</button>
+      <button class="btn-dl" onclick="baixarCSV()">⬇️ Baixar CSV consolidado</button>
+    </div>
+  </div>
+
+  <div class="footer"><b>Comparador de Planilhas v1.0</b> — parte do HubSpot Lead Cleaner · <a href="index.html" style="color:var(--text-2)">página principal</a></div>
+</div>
+<div id="toast-wrap" style="position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:9px;z-index:999;pointer-events:none"></div>
+
+<script>
+/* =====================================================================
+   COMPARADOR DE PLANILHAS — v1.0
+   Página independente. Não compartilha estado com index.html.
+   ===================================================================== */
+
+const COL_RENOVACAO = 'Quando acontece a próxima renovação ou vencimento do contrato atual?';
+const COL_DATA_CALC = 'Data de Renovação (calculada)';
+
+let arquivos = [];   // [{nome, rows:[{...}], headers:[...], emailCol, idCol, checked:Set}]
+let consolidado = []; // resultado final
+let colsFinais = [];
+let filtroAtual = 'todos';
+
+/* ---------- utilidades ---------- */
+function norm(s){return String(s??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}
+function toast(msg,type){
+  const wrap=document.getElementById('toast-wrap');
+  if(!wrap)return;
+  const el=document.createElement('div');
+  el.className='toast'+(type?' '+type:'');
+  el.textContent=msg;
+  wrap.appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('show'));
+  setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),320);},3400);
+}
+function sanitizeFormula(v){
+  if(v===null||v===undefined)return v;
+  let s=String(v);
+  if(!s)return v;
+  if(/^[=+\-@\t]/.test(s))return '';
+  return v;
+}
+function escHtml(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+/* ---------- parsing de arquivos ---------- */
+function parseCSV(text){
+  text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  let rows=[],cur='',row=[],inQ=false;
+  // auto-detecta delimitador (vírgula ou ponto-e-vírgula) pela primeira linha fora de aspas
+  let firstLine='',q=false;
+  for(let i=0;i<text.length;i++){let c=text[i];if(c==='"')q=!q;if(c==='\n'&&!q)break;firstLine+=c;}
+  const semi=(firstLine.match(/;/g)||[]).length, comma=(firstLine.match(/,/g)||[]).length;
+  const DELIM=semi>comma?';':',';
+  for(let i=0;i<text.length;i++){let ch=text[i];
+    if(ch==='"'){if(inQ&&text[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}
+    else if(ch===DELIM&&!inQ){row.push(cur);cur='';}
+    else if(ch==='\n'&&!inQ){row.push(cur);rows.push(row);row=[];cur='';}
+    else cur+=ch;}
+  if(cur!==''||row.length){row.push(cur);rows.push(row);}
+  rows=rows.filter(r=>r.some(c=>String(c).trim()!==''));
+  if(!rows.length)return{headers:[],rows:[]};
+  let headers=rows[0].map(h=>String(h).trim());
+  const data=rows.slice(1).map(r=>{let o={};headers.forEach((h,i)=>o[h]=String(r[i]??'').trim());return o;});
+  return{headers,rows:data};
+}
+function parseXLSX(arrayBuffer){
+  const wb=XLSX.read(arrayBuffer,{type:'array'});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const matriz=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''});
+  const linhas=matriz.filter(r=>r.some(c=>String(c).trim()!==''));
+  if(!linhas.length)return{headers:[],rows:[]};
+  const headers=linhas[0].map(h=>String(h).trim());
+  const data=linhas.slice(1).map(r=>{let o={};headers.forEach((h,i)=>o[h]=String(r[i]??'').trim());return o;});
+  return{headers,rows:data};
+}
+
+/* ---------- detecção automática de colunas ---------- */
+function detectarEmail(headers){
+  return headers.find(h=>{const n=norm(h);return n==='email'||n==='e-mail';})
+      || headers.find(h=>norm(h).includes('mail'))
+      || null;
+}
+function detectarIdHubspot(headers){
+  return headers.find(h=>{const n=norm(h);
+    return n==='record id'||n==='record id - contact'||n==='id do registro'
+        || (n.includes('hubspot')&&n.includes('id'))
+        || (n.includes('id')&&n.includes('registro'))
+        || n==='hubspot id'||n==='id hubspot'||n==='contact id';})
+      || null;
+}
+function detectarRenovacao(headers){
+  return headers.find(h=>h.trim()===COL_RENOVACAO)
+      || headers.find(h=>{const n=norm(h);return n.includes('renovacao')||n.includes('vencimento do contrato');})
+      || null;
+}
+
+/* ---------- conversão de período textual em data exata ---------- */
+function addMonths(base,n){
+  const d=new Date(base.getFullYear(),base.getMonth()+n,1);
+  const ultimo=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+  d.setDate(Math.min(base.getDate(),ultimo));
+  return d;
+}
+function addDays(base,n){const d=new Date(base);d.setDate(d.getDate()+n);return d;}
+function fmtBR(d){return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();}
+function converterPeriodo(texto,hoje){
+  if(!texto)return null;
+  const t=norm(texto);
+  if(!t||t==='nan')return null;
+  let m;
+  // "em 15 a 30 dias" / "30 dias" → menor valor em dias
+  m=t.match(/(\d+)\s*(?:a\s*\d+\s*)?dias?/);
+  if(m)return fmtBR(addDays(hoje,parseInt(m[1],10)));
+  // "em mais de 12 meses" → limite inferior = 12
+  m=t.match(/mais\s+de\s+(\d+)\s*mes/);
+  if(m)return fmtBR(addMonths(hoje,parseInt(m[1],10)));
+  // "em 7 a 12 meses" / "em 1 a 3 meses" / "em 6 meses" → primeiro número (limite inferior)
+  m=t.match(/(\d+)\s*(?:a\s*\d+\s*)?mes/);
+  if(m)return fmtBR(addMonths(hoje,parseInt(m[1],10)));
+  // "em 1 ano" / "2 anos"
+  m=t.match(/(\d+)\s*anos?/);
+  if(m)return fmtBR(addMonths(hoje,parseInt(m[1],10)*12));
+  return null;
+}
+
+/* ---------- UI: upload ---------- */
+const dz=document.getElementById('drop-zone'), fi=document.getElementById('file-input');
+dz.addEventListener('click',()=>fi.click());
+dz.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')fi.click();});
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dragover');addFiles(e.dataTransfer.files);});
+fi.addEventListener('change',()=>{addFiles(fi.files);fi.value='';});
+
+function addFiles(fileList){
+  [...fileList].forEach(file=>{
+    const ext=file.name.toLowerCase().split('.').pop();
+    if(!['csv','xlsx','xls'].includes(ext)){toast('❌ '+file.name+': formato não suportado','err');return;}
+    if(arquivos.some(a=>a.nome===file.name)){toast('⚠️ '+file.name+' já foi anexado','warn');return;}
+    const reader=new FileReader();
+    reader.onload=e=>{
+      try{
+        let parsed;
+        if(ext==='csv'){
+          let txt=e.target.result;
+          // heurística Latin1: muitos caracteres de substituição → relê como latin1
+          if((txt.match(/\uFFFD/g)||[]).length>3){
+            const r2=new FileReader();
+            r2.onload=e2=>{registrarArquivo(file.name,parseCSV(e2.target.result));};
+            r2.readAsText(file,'ISO-8859-1');return;
+          }
+          parsed=parseCSV(txt);
+        }else{
+          parsed=parseXLSX(e.target.result);
+        }
+        registrarArquivo(file.name,parsed);
+      }catch(err){toast('❌ Erro ao ler '+file.name,'err');console.error(err);}
+    };
+    if(ext==='csv')reader.readAsText(file,'UTF-8');
+    else reader.readAsArrayBuffer(file);
+  });
+}
+function registrarArquivo(nome,parsed){
+  if(!parsed.headers.length){toast('❌ '+nome+' está vazio','err');return;}
+  arquivos.push({
+    nome, headers:parsed.headers, rows:parsed.rows,
+    emailCol:detectarEmail(parsed.headers),
+    idCol:detectarIdHubspot(parsed.headers),
+    renovCol:detectarRenovacao(parsed.headers),
+    checked:new Set(parsed.headers)  // por padrão, todas marcadas
+  });
+  renderFiles();
+  toast('✅ '+nome+' — '+parsed.rows.length+' linhas, '+parsed.headers.length+' colunas','ok');
+}
+function removerArquivo(i){arquivos.splice(i,1);renderFiles();}
+function toggleCol(i,h,el){
+  const a=arquivos[i];
+  if(el.checked)a.checked.add(h);else a.checked.delete(h);
+}
+function marcarTodas(i,v){
+  const a=arquivos[i];
+  a.checked=v?new Set(a.headers):new Set();
+  renderFiles();
+}
+function setColSel(i,tipo,valor){arquivos[i][tipo]=valor||null;renderFiles();}
+
+function renderFiles(){
+  const panel=document.getElementById('files-panel');
+  panel.innerHTML='';
+  arquivos.forEach((a,i)=>{
+    const card=document.createElement('div');card.className='file-card';
+    const optsEmail=['<option value="">(nenhuma)</option>']
+      .concat(a.headers.map(h=>'<option value="'+escHtml(h)+'"'+(h===a.emailCol?' selected':'')+'>'+escHtml(h)+'</option>')).join('');
+    const optsId=['<option value="">(nenhuma)</option>']
+      .concat(a.headers.map(h=>'<option value="'+escHtml(h)+'"'+(h===a.idCol?' selected':'')+'>'+escHtml(h)+'</option>')).join('');
+    const badgeId=a.idCol
+      ?'<span class="det-badge ok">🔑 base HubSpot (tem ID)</span>'
+      :'<span class="det-badge warn">planilha de leads (sem ID)</span>';
+    card.innerHTML=
+      '<div class="file-card-head">'+
+        '<span class="fname">📄 '+escHtml(a.nome)+'</span>'+
+        '<span class="fmeta">'+a.rows.length+' linhas · '+a.headers.length+' colunas</span>'+
+        badgeId+
+        '<button class="file-remove" onclick="removerArquivo('+i+')">remover ✕</button>'+
+      '</div>'+
+      '<div class="det-row">'+
+        '<label>Coluna de e-mail: <select onchange="setColSel('+i+',\'emailCol\',this.value)">'+optsEmail+'</select></label>'+
+        '<label>Coluna de ID HubSpot: <select onchange="setColSel('+i+',\'idCol\',this.value)">'+optsId+'</select></label>'+
+      '</div>'+
+      '<div class="col-actions">'+
+        '<button onclick="marcarTodas('+i+',true)">marcar todas</button>·'+
+        '<button onclick="marcarTodas('+i+',false)">desmarcar todas</button>'+
+        '<span style="font-size:11.5px;color:var(--text-3);margin-left:6px">as colunas marcadas entram no relatório final</span>'+
+      '</div>'+
+      '<div class="col-grid">'+
+        a.headers.map(h=>
+          '<label class="col-item"><input type="checkbox" '+(a.checked.has(h)?'checked':'')+
+          ' onchange="toggleCol('+i+',this.dataset.h,this)" data-h="'+escHtml(h)+'">'+
+          '<span>'+escHtml(h)+(h===a.renovCol?' <span class="tag-renov">🗓️ renovação</span>':'')+'</span></label>'
+        ).join('')+
+      '</div>';
+    panel.appendChild(card);
+  });
+  document.getElementById('card-run').classList.toggle('hidden',arquivos.length===0);
+}
+
+/* ---------- processamento ---------- */
+function setProgress(p){document.getElementById('progress-bar').classList.remove('hidden');document.getElementById('progress-fill').style.width=p+'%';}
+
+function processar(){
+  if(!arquivos.length)return;
+  document.getElementById('btn-run').disabled=true;
+  setProgress(10);
+  setTimeout(()=>{
+    try{
+      const hoje=new Date();
+
+      /* A) conjunto de e-mails presentes no HubSpot (arquivos com coluna de ID) */
+      const basesHubspot=arquivos.filter(a=>a.idCol);
+      const emailsNoHubspot=new Set();
+      basesHubspot.forEach(a=>{
+        a.rows.forEach(r=>{
+          const id=String(r[a.idCol]??'').trim();
+          const em=a.emailCol?norm(r[a.emailCol]):'';
+          if(id&&em)emailsNoHubspot.add(em);
+        });
+      });
+      const temBase=basesHubspot.length>0;
+      setProgress(40);
+
+      /* colunas finais = união das colunas marcadas, na ordem de aparição */
+      colsFinais=[];
+      arquivos.forEach(a=>a.headers.forEach(h=>{
+        if(a.checked.has(h)&&!colsFinais.includes(h))colsFinais.push(h);
+      }));
+      const incOrigem=document.getElementById('opt-origem').checked;
+      const incStatus=document.getElementById('opt-status').checked;
+      const temRenov=arquivos.some(a=>a.renovCol&&a.checked.has(a.renovCol));
+      if(temRenov&&!colsFinais.includes(COL_DATA_CALC)){
+        const posRenov=colsFinais.findIndex(c=>arquivos.some(a=>a.renovCol===c));
+        colsFinais.splice(posRenov+1,0,COL_DATA_CALC);
+      }
+      if(incStatus)colsFinais.push('Status HubSpot');
+      if(incOrigem)colsFinais.push('Arquivo de Origem');
+
+      /* B) + C) percorre todas as linhas: status HubSpot + conversão de data + consolidação */
+      consolidado=[];
+      let datasConvertidas=0, dentro=0, fora=0;
+      arquivos.forEach(a=>{
+        a.rows.forEach(r=>{
+          const o={};
+          colsFinais.forEach(c=>{o[c]=sanitizeFormula(r[c]??'')??'';});
+          // conversão do período de renovação
+          if(a.renovCol&&a.checked.has(a.renovCol)){
+            const d=converterPeriodo(r[a.renovCol],hoje);
+            if(d){o[COL_DATA_CALC]=d;datasConvertidas++;}
+            else o[COL_DATA_CALC]='';
+          }
+          // status no HubSpot (pela chave e-mail)
+          const em=a.emailCol?norm(r[a.emailCol]):'';
+          let status;
+          if(!temBase)status='—';
+          else if(a.idCol&&String(r[a.idCol]??'').trim())status='No HubSpot';
+          else if(em&&emailsNoHubspot.has(em))status='No HubSpot';
+          else status='Fora do HubSpot';
+          if(status==='No HubSpot')dentro++;else if(status==='Fora do HubSpot')fora++;
+          if(incStatus)o['Status HubSpot']=status;
+          if(incOrigem)o['Arquivo de Origem']=a.nome;
+          o._status=status;
+          consolidado.push(o);
+        });
+      });
+      setProgress(85);
+
+      /* estatísticas e alerta */
+      document.getElementById('st-total').textContent=consolidado.length;
+      document.getElementById('st-in').textContent=dentro;
+      document.getElementById('st-out').textContent=fora;
+      document.getElementById('st-datas').textContent=datasConvertidas;
+      const alerta=document.getElementById('alerta-fora');
+      if(!temBase){
+        alerta.classList.remove('hidden');
+        alerta.innerHTML='⚠️ <b>Nenhuma planilha com coluna de ID do HubSpot foi identificada.</b> O cruzamento não pôde ser feito — selecione a coluna de ID no painel do arquivo correspondente (ex.: export do CRM com "Record ID") e processe novamente.';
+      }else if(fora>0){
+        alerta.classList.remove('hidden');
+        alerta.innerHTML='⚠️ <b>'+fora+' linha'+(fora>1?'s':'')+'</b> não possue'+(fora>1?'m':'')+' ID do HubSpot correspondente (e-mails que ainda não subiram para o CRM). Use o filtro <b>"Fora do HubSpot"</b> abaixo para revisar antes de importar.';
+      }else{
+        alerta.classList.remove('hidden');
+        alerta.style.borderColor='rgba(61,217,164,.4)';alerta.style.background='rgba(61,217,164,.07)';
+        alerta.innerHTML='✅ Todas as linhas com e-mail foram encontradas no HubSpot.';
+      }
+
+      setFiltro('todos');
+      document.getElementById('card-result').classList.remove('hidden');
+      document.getElementById('card-result').scrollIntoView({behavior:'smooth'});
+      setProgress(100);
+      toast('✅ Processamento concluído — '+consolidado.length+' linhas consolidadas','ok');
+    }catch(err){
+      console.error(err);toast('❌ Erro no processamento: '+err.message,'err');
+    }finally{
+      document.getElementById('btn-run').disabled=false;
+      setTimeout(()=>document.getElementById('progress-bar').classList.add('hidden'),800);
+    }
+  },60);
+}
+
+/* ---------- tabela de resultado ---------- */
+function linhasFiltradas(){
+  if(filtroAtual==='fora')return consolidado.filter(r=>r._status==='Fora do HubSpot');
+  if(filtroAtual==='dentro')return consolidado.filter(r=>r._status==='No HubSpot');
+  return consolidado;
+}
+function setFiltro(f){
+  filtroAtual=f;
+  document.querySelectorAll('.fchip').forEach(b=>b.classList.toggle('on',b.dataset.f===f));
+  renderTabela();
+}
+function renderTabela(){
+  const rows=linhasFiltradas();
+  const thead=document.querySelector('#tbl-result thead');
+  const tbody=document.querySelector('#tbl-result tbody');
+  thead.innerHTML='<tr>'+colsFinais.map(c=>'<th>'+escHtml(c)+'</th>').join('')+'</tr>';
+  const LIMITE=300;
+  tbody.innerHTML=rows.slice(0,LIMITE).map(r=>'<tr>'+colsFinais.map(c=>{
+    let v=r[c]??'';
+    if(c==='Status HubSpot'&&v!=='—')
+      return '<td><span class="pill '+(v==='No HubSpot'?'in':'out')+'">'+escHtml(v)+'</span></td>';
+    return '<td title="'+escHtml(v)+'">'+escHtml(v)+'</td>';
+  }).join('')+'</tr>').join('');
+  document.getElementById('tbl-count').textContent=
+    rows.length+' linha'+(rows.length!==1?'s':'')+(rows.length>LIMITE?' (exibindo as primeiras '+LIMITE+')':'')+' · '+colsFinais.length+' colunas';
+}
+
+/* ---------- exportação ---------- */
+function baixarCSV(){
+  const rows=linhasFiltradas();
+  if(!rows.length){toast('Nada para exportar','warn');return;}
+  const esc=v=>{v=String(v??'');return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  const csv=colsFinais.map(esc).join(',')+'\n'+rows.map(r=>colsFinais.map(c=>esc(r[c])).join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='comparador_consolidado_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+  toast('📦 CSV consolidado baixado','ok');
+}
+function exportarGoogleSheets(){
+  const rows=linhasFiltradas();
+  if(!rows.length){toast('Nada para exportar','warn');return;}
+  // Copia como tabela HTML — único formato em que o Google Sheets preserva quebras dentro da célula
+  const cell=v=>'<td style="white-space:pre-wrap">'+escHtml(v).replace(/\n/g,'<br>')+'</td>';
+  const linha=arr=>'<tr>'+arr.map(cell).join('')+'</tr>';
+  const html='<meta charset="utf-8"><table>'+linha(colsFinais)+rows.map(r=>linha(colsFinais.map(c=>r[c]))).join('')+'</table>';
+  const escTsv=v=>String(v==null?'':v).replace(/[\t\n]/g,' ');
+  const tsv=colsFinais.map(escTsv).join('\t')+'\n'+rows.map(r=>colsFinais.map(c=>escTsv(r[c])).join('\t')).join('\n');
+  const abrir=()=>{
+    window.open('https://docs.google.com/spreadsheets/create','_blank');
+    setTimeout(()=>{alert('✅ Dados copiados!\n\nNo Google Sheets que abriu:\n1. Clique na célula A1\n2. Cole com Ctrl+V (ou Cmd+V no Mac)\n\n'+rows.length+' linhas serão coladas com as colunas selecionadas.');},500);
+  };
+  const fallbackCSV=()=>{
+    baixarCSV();
+    window.open('https://docs.google.com/spreadsheets/create','_blank');
+    alert('Não foi possível copiar automaticamente.\n\nO CSV foi baixado. No Google Sheets:\n1. Vá em Arquivo → Importar\n2. Aba Upload → arraste o CSV\n3. Clique Importar dados');
+  };
+  const copiarTexto=()=>navigator.clipboard.writeText(tsv).then(abrir).catch(fallbackCSV);
+  try{
+    if(navigator.clipboard&&window.ClipboardItem){
+      const item=new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([tsv],{type:'text/plain'})});
+      navigator.clipboard.write([item]).then(abrir).catch(copiarTexto);
+    }else copiarTexto();
+  }catch(e){copiarTexto();}
+}
+</script>
+</body>
+</html>
