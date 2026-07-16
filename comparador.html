@@ -334,7 +334,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>Comparador de Planilhas v3.1</b> — parte do HubSpot Lead Cleaner · <a href="index.html" style="color:var(--text-2)">página principal</a></div>
+  <div class="footer"><b>Comparador de Planilhas v3.2</b> — parte do HubSpot Lead Cleaner · <a href="index.html" style="color:var(--text-2)">página principal</a></div>
 </div>
 <div id="toast-wrap" style="position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:9px;z-index:999;pointer-events:none"></div>
 
@@ -445,6 +445,36 @@ function detectarRenovacao(headers){
       || headers.find(h=>{const n=norm(h);return n.includes('renovacao')||n.includes('vencimento do contrato');})
       || null;
 }
+function detectarDataHora(headers){
+  const ne=h=>norm(h).replace(/\s+/g,' ');
+  const exatas=['data/hora','data e hora','data hora','datahora','timestamp','carimbo de data/hora','data de envio','data de submissao','data da resposta','data'];
+  let r=headers.find(h=>exatas.includes(ne(h)));
+  if(r)return r;
+  r=headers.find(h=>{const n=ne(h);return n.includes('data')&&n.includes('hora');});
+  if(r)return r;
+  r=headers.find(h=>/timestamp|carimbo/i.test(ne(h)));
+  return r||null;
+}
+/* Parseia DD/MM/AAAA [HH:MM[:SS]] (BR) ou AAAA-MM-DD[T HH:MM[:SS]] (ISO).
+   Retorna Date ou null. */
+function parseDataHora(str){
+  if(str===null||str===undefined)return null;
+  const s=String(str).trim();
+  if(!s)return null;
+  let m=s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})(?:[\s,T]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if(m){
+    const d=new Date(+m[3],+m[2]-1,+m[1],+(m[4]||0),+(m[5]||0),+(m[6]||0));
+    return isNaN(d.getTime())?null:d;
+  }
+  m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[\s,T]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if(m){
+    const d=new Date(+m[1],+m[2]-1,+m[3],+(m[4]||0),+(m[5]||0),+(m[6]||0));
+    return isNaN(d.getTime())?null:d;
+  }
+  const t=Date.parse(s);
+  if(!isNaN(t))return new Date(t);
+  return null;
+}
 
 /* ---------- conversão de período textual em data exata ---------- */
 function addMonths(base,n){
@@ -514,6 +544,7 @@ function registrarArquivo(nome,parsed){
     chaveCol:detectarEmail(parsed.headers),
     idCol:detectarIdHubspot(parsed.headers),
     renovCol:detectarRenovacao(parsed.headers),
+    dataHoraCol:detectarDataHora(parsed.headers),
     checked:new Set(parsed.headers)
   });
   renderFiles();
@@ -549,6 +580,8 @@ function renderFiles(){
       .concat(a.headers.map(h=>'<option value="'+escHtml(h)+'"'+(h===a.chaveCol?' selected':'')+'>'+escHtml(h)+'</option>')).join('');
     const optsId=['<option value="">(nenhuma)</option>']
       .concat(a.headers.map(h=>'<option value="'+escHtml(h)+'"'+(h===a.idCol?' selected':'')+'>'+escHtml(h)+'</option>')).join('');
+    const optsDh=['<option value="">(usar data do processamento)</option>']
+      .concat(a.headers.map(h=>'<option value="'+escHtml(h)+'"'+(h===a.dataHoraCol?' selected':'')+'>'+escHtml(h)+'</option>')).join('');
     // badges por modo
     let badge;
     if(modo==='comparar'){
@@ -568,6 +601,9 @@ function renderFiles(){
     const idSelHtml=mostrarId
       ?'<label>Coluna de ID HubSpot: <select onchange="setColSel('+i+',\'idCol\',this.value)">'+optsId+'</select></label>'
       :'';
+    const dhSelHtml=a.renovCol
+      ?'<label title="Data usada como base para calcular a renovação">Base para renovação: <select onchange="setColSel('+i+',\'dataHoraCol\',this.value)">'+optsDh+'</select></label>'
+      :'';
     // No modo Juntar TODOS os cards mostram checkboxes; no Comparar só a base
     const mostrarChecks = modo==='juntar' || isBase;
     const notaSec = (modo==='comparar' && !isBase)
@@ -586,6 +622,7 @@ function renderFiles(){
       '</div>'+
       '<div class="det-row">'+
         '<label>Chave de comparação: <select onchange="setColSel('+i+',\'chaveCol\',this.value)">'+optsChave+'</select></label>'+
+        dhSelHtml+
         idSelHtml+
       '</div>'+
       (mostrarChecks
@@ -598,7 +635,7 @@ function renderFiles(){
             a.headers.map(h=>
               '<label class="col-item"><input type="checkbox" '+(a.checked.has(h)?'checked':'')+
               ' onchange="toggleCol('+i+',this.dataset.h,this)" data-h="'+escHtml(h)+'">'+
-              '<span>'+escHtml(h)+(h===a.renovCol?' <span class="tag-renov">🗓️ renovação</span>':'')+'</span></label>'
+              '<span>'+escHtml(h)+(h===a.renovCol?' <span class="tag-renov">🗓️ renovação</span>':'')+(h===a.dataHoraCol?' <span class="tag-renov" style="color:var(--blue)">🕓 data/hora</span>':'')+'</span></label>'
             ).join('')+
           '</div>'
         : notaSec);
@@ -677,11 +714,16 @@ function comparar(){
       base.rows.forEach(r=>{
         const o={};
         colsBase.forEach(c=>{o[c]=sanitizeFormula(r[c]??'')??'';});
-        // Data de renovação
+        // Data de renovação: base = coluna Data/Hora da linha (fallback: hoje)
         if(temRenov){
-          const d=converterPeriodo(r[base.renovCol],hoje);
-          o[COL_DATA_CALC]=d||'';
-          if(d)datasConv++;
+          const baseData = base.dataHoraCol ? parseDataHora(r[base.dataHoraCol]) : hoje;
+          if(baseData){
+            const d=converterPeriodo(r[base.renovCol],baseData);
+            o[COL_DATA_CALC]=d||'';
+            if(d)datasConv++;
+          }else{
+            o[COL_DATA_CALC]='';
+          }
         }
         // Presença em cada secundária
         const k=norm(r[base.chaveCol]);
@@ -821,14 +863,16 @@ function juntar(){
           if(outCol)mapCols[h]=outCol;
         });
         a.rows.forEach(r=>{
+          // Base para o cálculo de renovação nesta linha: coluna Data/Hora (fallback: hoje)
+          const baseData = a.dataHoraCol ? (parseDataHora(r[a.dataHoraCol])||null) : hoje;
           const k=norm(r[a.chaveCol]);
           if(!k){
             // linha sem chave → segrega
             const o={};
             colsSaida.forEach(c=>o[c]='');
             Object.entries(mapCols).forEach(([h,oc])=>{o[oc]=sanitizeFormula(r[h]??'')??'';});
-            if(converterData&&a.renovCol&&a.checked.has(a.renovCol)){
-              const d=converterPeriodo(r[a.renovCol],hoje);
+            if(converterData&&a.renovCol&&a.checked.has(a.renovCol)&&baseData){
+              const d=converterPeriodo(r[a.renovCol],baseData);
               o[COL_DATA_CALC]=d||'';
             }
             o._fontes=[a.nome];
@@ -841,8 +885,8 @@ function juntar(){
             const o={};
             colsSaida.forEach(c=>o[c]='');
             Object.entries(mapCols).forEach(([h,oc])=>{o[oc]=sanitizeFormula(r[h]??'')??'';});
-            if(converterData&&a.renovCol&&a.checked.has(a.renovCol)){
-              const d=converterPeriodo(r[a.renovCol],hoje);
+            if(converterData&&a.renovCol&&a.checked.has(a.renovCol)&&baseData){
+              const d=converterPeriodo(r[a.renovCol],baseData);
               o[COL_DATA_CALC]=d||'';
             }
             byKey[k]={out:o,fontes:new Set([a.nome]),origemIdx:idx};
@@ -859,8 +903,8 @@ function juntar(){
               }
             });
             // Data calculada: só preenche se vazio
-            if(converterData&&a.renovCol&&a.checked.has(a.renovCol)&&!entry.out[COL_DATA_CALC]){
-              const d=converterPeriodo(r[a.renovCol],hoje);
+            if(converterData&&a.renovCol&&a.checked.has(a.renovCol)&&!entry.out[COL_DATA_CALC]&&baseData){
+              const d=converterPeriodo(r[a.renovCol],baseData);
               if(d){entry.out[COL_DATA_CALC]=d;statsPorArq[idx].camposPreenchidos++;}
             }
           }
