@@ -377,9 +377,17 @@ const FAIXAS_OFICIAIS=[
   {low:250,high:499,label:'De 250 a 499 funcionários'},{low:500,high:999,label:'De 500 a 999 funcionários'},
   {low:1000,high:Infinity,label:'1000 funcionários ou mais'}
 ];
-const NAO_PESSOAL=new Set(['rh','dp','ti','tib','ai','sgi','dho','adm','financeiro','administrativo','comercial','marketing','vendas','suporte','atendimento','onboarding','recrutamento','selecao','departamento','setor','gestao','gestor','gestora','coordenacao','diretoria','gerencia','recursos','humanos','pessoal','contato','empresa','equipe','time','grupo','analista','assistente','auxiliar','coordenador','coordenadora','gerente','diretor','diretora','supervisor','supervisora','consultor','consultora','estagiario','estagiaria','socio','proprietario','founder','ceo','presidente','head','operacoes','operacional','produto','produtos','tecnologia','juridico','fiscal','contabil','contabilidade','logistica','compras','faturamento','cobranca','recepcao','secretaria','ouvidoria','sac']);
-const COMPANY_WORDS=new Set(['pizzaria','restaurante','bar','padaria','mercado','mercadinho','supermercado','loja','lojas','farmacia','drogaria','clinica','hospital','escola','colegio','academia','hotel','pousada','oficina','posto','transportadora','construtora','imobiliaria','banco','seguros','seguradora','fabrica','atacado','atacadista','varejo','magazine','boutique','salao','barbearia','petshop','lanchonete','cafeteria','cafe','sorveteria','hamburgueria','churrascaria','buffet','eventos','comercio','comercial','industria','servicos','tecnologia','solucoes','consultoria','distribuidora','transportes','empreendimentos','participacoes','holding','grupo','associacao','instituto','fundacao','representacoes','films','filmes','studio','estudio','design','digital','agencia','produtora','editora','engenharia','arquitetura','advocacia','odonto','odontologia','veterinaria','imoveis','corretora','factory','company','corp','tech','labs','ventures','capital','invest','investimentos']);
-const EMPRESA_RE=/\b(ltda|me|epp|eireli|s\/?a|sa|s\.a|cia)\b/i;
+const NAO_PESSOAL=new Set(['rh','dp','ti','tib','ai','sgi','dho','adm','financeiro','administrativo','comercial','marketing','vendas','suporte','atendimento','onboarding','recrutamento','selecao','departamento','setor','gestao','gestor','gestora','coordenacao','diretoria','gerencia','recursos','humanos','pessoal','contato','empresa','equipe','time','grupo','analista','assistente','auxiliar','coordenador','coordenadora','gerente','diretor','diretora','supervisor','supervisora','consultor','consultora','estagiario','estagiaria','socio','proprietario','founder','ceo','presidente','head','operacoes','operacional','produto','produtos','tecnologia','juridico','fiscal','contabil','contabilidade','logistica','compras','faturamento','cobranca','recepcao','secretaria','ouvidoria','sac',
+  // cargos adicionais
+  'especialista','lider','lideranca','encarregado','responsavel','coordenadoria','chefia','chefe','subgerente','vice','vp','cto','cfo','coo','cmo','cso','sdr','bdr','hunter','closer','success','scrum','master','agile','product','owner','engineer','developer','qa','devops','data','scientist','arquiteto','arquiteta','infraestrutura','seguranca','helpdesk','suporte','noc','sys','admin','sysadmin',
+  // setores/areas adicionais
+  'tributario','societario','trabalhista','previdenciario','ambiental','regulatorio','compliance','auditoria','controladoria','tesouraria','planejamento','estrategia','processos','qualidade','sst','sesmt','medicina','engenharia','producao','operacoes','distribuicao','estoque','expedição','expedicao','almoxarifado','manutencao','facilities','ti','infraestrutura','governanca',
+  // descritores genéricos
+  'teste','test','usuario','user','contato','cadastro','novo','nova','cliente','lead','prospect','indefinido','desconhecido','nao','informado','nao informado','s/n','sn','sem nome','semcadastro','pendente']);
+const COMPANY_WORDS=new Set(['pizzaria','restaurante','bar','padaria','mercado','mercadinho','supermercado','loja','lojas','farmacia','drogaria','clinica','hospital','escola','colegio','academia','hotel','pousada','oficina','posto','transportadora','construtora','imobiliaria','banco','seguros','seguradora','fabrica','atacado','atacadista','varejo','magazine','boutique','salao','barbearia','petshop','lanchonete','cafeteria','cafe','sorveteria','hamburgueria','churrascaria','buffet','eventos','comercio','comercial','industria','servicos','tecnologia','solucoes','consultoria','distribuidora','transportes','empreendimentos','participacoes','holding','grupo','associacao','instituto','fundacao','representacoes','films','filmes','studio','estudio','design','digital','agencia','produtora','editora','engenharia','arquitetura','advocacia','odonto','odontologia','veterinaria','imoveis','corretora','factory','company','corp','tech','labs','ventures','capital','invest','investimentos',
+  // adicionais
+  'automoveis','automovel','veiculos','veiculo','oficina','concessionaria','revenda','revendas','pecas','autoparts','logistica','freight','cargo','express','delivery','entregas','fretes','mudancas','mudanca','mineracao','minerais','agroindustria','agropecuaria','agro','graos','cereais','fertilizantes','sementes','irrigacao','hortifruti','frigorifico','abatedouro','laticinio','laticinios','acougue','panificadora','confeitaria','doces','sorvetes','cosmeticos','farmaceutica','laboratorio','laboratorios','odontologica','odontologico','medico','medica','clinicas','hospitalar','homecare','home','care','plano','saude','clinicamed','mediservice','drogaria','farmacia','cirurgico','equipamentos','ferramentas','material','construcao','tintas','eletrica','eletrico','eletronicos','celulares','informatica','computadores','impressoras','suprimentos','papelaria','livraria','editorial','grafica','grafico','midia','publicidade','propaganda','marketing','comunicacao','assessoria','gestao','terceirizacao','outsourcing','rh','contabilidade','contabil','auditoria','fiscal','juridico','cartorio','tabelionato','sindico','condominio','imobiliaria','construtora','incorporadora','loteamento','empreendimentos','engenharia','arquitetura','urbanismo','topografia','ambiental','residuos','reciclagem','energia','solar','eolica','hidreletrica','termoeletrica','combustivel','combustiveis','gas','gasolina','etanol','biocombustivel','petroleo','minerio','mineracao','carvao','calcario','ceramica','tijolos','cimento','argamassa','concreto','vidracaria','vidros','aluminio','metalurgia','siderurgia','fundição','fundicao','forjaria','galvanica','pintura','soldagem','usinagem','mecanica','autopecas','reboque','transporte','transportes','locacao','aluguel','arrendamento','leasing','seguradora','broker','corretora','financeira','credito','emprestimo','consorcio','cambio','investimento','gestora','previdencia','capitalização','capitalizacao','seguro','assistencia','beneficios','beneficio']);
+const EMPRESA_RE=/\b(ltda|me|epp|eireli|s\/?a|sa|s\.a|cia|inc|llc|ltd)\b/i;
 // DDDs válidos no Brasil (ANATEL)
 const DDD_VALIDOS=new Set(['11','12','13','14','15','16','17','18','19','21','22','24','27','28','31','32','33','34','35','37','38','41','42','43','44','45','46','47','48','49','51','53','54','55','61','62','63','64','65','66','67','68','69','71','73','74','75','77','79','81','82','83','84','85','86','87','88','89','91','92','93','94','95','96','97','98','99']);
 const TAGS_PURAS=new Set(['rh','dp','ti','tib','ai','sgi','dho','onboarding','recrutamento','selecao']);
@@ -419,23 +427,98 @@ const BLOCKED_DOMAINS=new Set(['solides.com.br','tangerino.com.br']);
 function isJunk(e){if(!e||!e.includes('@'))return true;if(JUNK_EMAILS.has(e))return true;let i=e.lastIndexOf('@');let local=e.slice(0,i),dom=e.slice(i+1);if(BLOCKED_DOMAINS.has(dom))return true;let domRoot=dom.split('.')[0];if(new Set([...local]).size===1&&local.length>0)return true;let seq=['asdf','qwer','qwerty','1234','abcd','teste','test'];return seq.includes(local)||['asdf','teste','test'].includes(domRoot);}
 
 function titleCasePT(s){if(!s)return '';const prep=new Set(['de','da','do','das','dos','e','di','del','la','y']);return String(s).trim().split(/\s+/).map((w,i)=>{let lw=w.toLowerCase();if(i>0&&prep.has(lw))return lw;const acentuado=restaurarAcento(lw);if(acentuado)return acentuado;return lw.charAt(0).toUpperCase()+lw.slice(1);}).join(' ');}
-const CARGO_SETOR_RE=/^(gerente|diretor|diretora|analista|especialista|coordenador|coordenadora|assistente|consultor|consultora|representante|supervisor|supervisora|vendedor|vendedora|operador|operadora|tecnico|tecnica|engenheiro|engenheira|contador|contadora|advogado|advogada|extracao|producao|fabricacao|comercio|industria|servicos|atividades)\b/i;
+const CARGO_SETOR_RE=/^(gerente|diretor|diretora|analista|especialista|coordenador|coordenadora|assistente|consultor|consultora|representante|supervisor|supervisora|vendedor|vendedora|operador|operadora|tecnico|tecnica|engenheiro|engenheira|contador|contadora|advogado|advogada|extracao|producao|fabricacao|comercio|industria|servicos|atividades|lider|lideranca|encarregado|responsavel|chefe|subgerente|head|ceo|cto|cfo|coo|sdr|bdr|desenvolvedor|desenvolvedor|programador|programadora|arquiteto|arquiteta|designer|estagiario|estagiaria|aprendiz|trainee|auxiliar|assistente|gestor|gestora|proprietario|proprietaria|socio|socia|founder|presidente|vice|secretaria|secretario|ouvidoria|recepcionista)\b/i;
+
+/* Detecção de padrão anômalo de texto — retorna true se o texto NÃO parece nome humano */
+function ehTextoAnomalo(s){
+  if(!s)return true;
+  const letras=s.replace(/[^a-zA-ZÀ-ú]/g,'');
+  if(!letras.length)return true;
+
+  // 1. Tudo MAIÚSCULO com 3+ chars e sem acento (ex: BBBB, RHRH, TI, FINANCEIRO)
+  //    Exceto siglas reconhecidas de 2-3 letras que podem ser apelidos (ex: "Ed", "AL")
+  if(letras===letras.toUpperCase()&&letras.length>3){
+    // Admite se parece sigla de nome próprio em português (só consoantes+vogais raras)
+    return true;
+  }
+
+  // 2. Padrão AAaaa: primeira(s) maiúsculas + resto minúsculas, mas com 2+ maiúsculas no início (ex: AAron → não, mas AAaaa → sim)
+  //    Detecta: 2+ letras maiúsculas consecutivas no INÍCIO seguidas de minúsculas (digitação errada / caps lock parcial)
+  if(/^[A-ZÀÁÂÃÄÉÊÍÓÔÕÚÇ]{2,}[a-záàâãäéêíóôõúç]/.test(s)){
+    // Exceção: pode ser nome legítimo com acento tipo "ÉRica" ou sigla tipo "MCFernanda" (improvável mas conservador)
+    // Rejeita se as iniciais maiúsculas não formam uma sigla reconhecida
+    const maiusIniciais=s.match(/^([A-ZÀÁÂÃÄÉÊÍÓÔÕÚÇ]+)/)[1];
+    if(maiusIniciais.length>=3)return true; // 3+ maiúsculas seguidas no início = anomalia
+    // 2 maiúsculas no início: admite se a segunda parece inicial de sobrenome colado (ex: MCarlos → raro mas possível)
+    // Neste caso é ambíguo; deixa passar para o título-case corrigir
+  }
+
+  // 3. Letra única repetida: AAA, BBBB, aaaa, zzzz
+  if(/^(.)\1{2,}$/i.test(letras))return true;
+
+  // 4. Sequência de letras sem vogais (≥4 consoantes seguidas) = provável lixo/sigla
+  const semEspacos=s.replace(/\s/g,'');
+  if(/[bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ]{5,}/.test(semEspacos)&&!/[aeiouáàâãéêíóôõú]/i.test(semEspacos))return true;
+
+  // 5. Tokens com 1-2 letras sem ser preposição reconhecida → pode ser abreviação/sigla lixo
+  //    (só aplica quando há tokens, ou seja texto com espaço)
+  const tokens=s.trim().split(/\s+/);
+  const prep=new Set(['de','da','do','das','dos','e','di','del','la','y']);
+  if(tokens.length>=2){
+    const todosMinimos=tokens.every(t=>{
+      const lt=t.replace(/[^a-zA-ZÀ-ú]/g,'');
+      return lt.length<=2&&!prep.has(lt.toLowerCase());
+    });
+    if(todosMinimos)return true; // ex: "RH DP", "TI ADM"
+  }
+
+  // 6. Repetição de padrão: mesmo token repetido (ex: "RH RH", "Ana Ana")
+  if(tokens.length>=2&&new Set(tokens.map(t=>t.toLowerCase())).size===1)return true;
+
+  // 7. Token único com apenas 1 caractere
+  if(tokens.length===1&&letras.length===1)return true;
+
+  return false;
+}
+
 function ehNomePessoal(texto){
   if(!texto||!String(texto).trim())return false;
   let s=String(texto).trim();
+
+  // Rejeição por sufixo de pessoa jurídica
   if(EMPRESA_RE.test(s))return false;
+
+  // Rejeição por padrão anômalo (CAPS, gibberish, repetição)
+  if(ehTextoAnomalo(s))return false;
+
   let pc=norm(s).split(/\s+/).filter(Boolean);
   if(pc.some(p=>COMPANY_WORDS.has(p)))return false;
+
   let palavras=norm(s).replace(/[^a-zçãáàâéêíóôõú\s]/g,' ').split(/\s+/).filter(Boolean);
   const prep=new Set(['de','da','do','das','dos','e']);
   let signif=palavras.filter(p=>!prep.has(p));
   if(!signif.length)return false;
   if(NAO_PESSOAL.has(signif[0]))return false;
   if(signif.every(p=>NAO_PESSOAL.has(p)))return false;
-  // Descrição de cargo/setor: 2+ preposições OU começa com palavra de cargo/CNAE ("Extração de Petróleo e Gás Natural")
+
+  // Descrição de cargo/setor: 2+ preposições OU começa com palavra de cargo/CNAE
   const prepCount=palavras.filter(p=>prep.has(p)).length;
   if(prepCount>=2)return false;
   if(CARGO_SETOR_RE.test(s))return false;
+
+  // Rejeição por token de empresa no final (ex: "João Silva Construtora", "Pedro Ltda")
+  const ultimoPc=pc[pc.length-1];
+  if(pc.length>1&&COMPANY_WORDS.has(ultimoPc))return false;
+
+  // Token único e não está na lista de nomes conhecidos, mas é todo maiúsculo com 4+ chars
+  if(pc.length===1){
+    const raw=s.trim();
+    const letters=raw.replace(/[^a-zA-ZÀ-ú]/g,'');
+    if(letters.length>=4&&letters===letters.toUpperCase())return false;
+    // Token único curto de 1-2 chars que não é nome (ex: "Rh", "Ti")
+    if(letters.length<=2&&!NOMES_COMUNS.has(norm(letters)))return false;
+  }
+
   return true;
 }
 function removerTags(s){return s.split(/\s+/).filter(w=>!TAGS_PURAS.has(norm(w))).join(' ').replace(/^[\s\-–—|]+|[\s\-–—|]+$/g,'').trim();}
@@ -1444,6 +1527,10 @@ REGRAS OBRIGATÓRIAS:
 - Padrão "[Cargo] de [Setor]": "Vendedor de Tecnologia" → vazio (é cargo, não nome)
 - Nomes genéricos/corporativos: "Comercial", "Operações", "Desenvolvimento", "Planejamento"
 - Descrições em maiúscula: "RECURSOS HUMANOS", "FINANCEIRO", "TI" (são departamentos)
+- Texto todo maiúsculo com 4+ letras: "BBBB", "AAAA", "RHRH" → vazio
+- Padrão anômalo (3+ maiúsculas no início): "AAaaa", "BBBbb" → vazio
+- Letra única repetida: "aaaa", "ZZZZ" → vazio
+- Empresa colada ao nome: "João Silva Construtora", "Pedro Ltda" → remova sufixo
 
 ❌ NUNCA INVENTE:
 - Não dá para identificar com segurança uma pessoa real → DEIXE VAZIO
