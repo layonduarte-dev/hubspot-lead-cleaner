@@ -318,7 +318,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>HubSpot Lead Cleaner v8.2</b> — aplicação standalone · tema Dark Purple · histórico local</div>
+  <div class="footer"><b>HubSpot Lead Cleaner v8.3</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -811,8 +811,61 @@ function buildHeaderMap(headers,manual){
 function mapHeader(h){let c=headerCandidates(h);return c.length?c[0].target:null;}
 function isAreaColumn(h){let n=norm(h);return n.includes('atuacao')||n.includes('departamento')||n.includes('setor')||n.includes('divisao')||(n.includes('area')&&(n.includes('rh')||n.includes('empresa')||n.includes('atuacao')))||n.includes('qual sua area')||n.includes('qual o departamento');}
 
+/* ===================== DATA DE VIGÊNCIA ALPER ===================== */
+/* Converte "26/05/2026 10:31:56", "26/05/2026" ou "2026-05-26" em objeto Date. */
+function parseDataBR(s){
+  s=String(s==null?'':s).trim();
+  if(!s)return null;
+  let mi=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); // ISO
+  if(mi){let dt=new Date(+mi[1],+mi[2]-1,+mi[3]);return isNaN(dt.getTime())?null:dt;}
+  let m=s.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/); // DD/MM/AAAA
+  if(!m)return null;
+  let d=+m[1],mo=+m[2],y=+m[3];
+  if(y<100)y+=2000;
+  if(mo<1||mo>12||d<1||d>31)return null;
+  let dt=new Date(y,mo-1,d);
+  return isNaN(dt.getTime())?null:dt;
+}
+/* Extrai o PRIMEIRO número e a unidade de tempo de textos como "Em 7 a 12 meses". */
+function extrairPeriodo(s){
+  s=String(s==null?'':s).toLowerCase();
+  let m=s.match(/(\d+)/);
+  if(!m)return null;
+  let n=parseInt(m[1],10);
+  let unidade='meses';
+  if(/\bano\b|\banos\b/.test(s))unidade='anos';
+  else if(/\bsemana/.test(s))unidade='semanas';
+  else if(/\bdia\b|\bdias\b/.test(s))unidade='dias';
+  return {n,unidade};
+}
+/* Soma o período à data, com "clamp" de fim de mês (31/01 + 1 mês = 28/02). */
+function somarPeriodo(date,n,unidade){
+  let d=new Date(date.getTime());
+  if(unidade==='anos'){d.setFullYear(d.getFullYear()+n);}
+  else if(unidade==='semanas'){d.setDate(d.getDate()+n*7);}
+  else if(unidade==='dias'){d.setDate(d.getDate()+n);}
+  else{let dia=d.getDate();d.setMonth(d.getMonth()+n);if(d.getDate()<dia)d.setDate(0);}
+  return d;
+}
+function formatDataBR(d){
+  let dd=String(d.getDate()).padStart(2,'0');
+  let mm=String(d.getMonth()+1).padStart(2,'0');
+  return dd+'/'+mm+'/'+d.getFullYear();
+}
+/* Calcula a Data de Vigência Alper = data-base (coluna A) + 1º número do período. */
+function calcVigenciaAlper(baseStr,periodoStr){
+  let pd=String(periodoStr==null?'':periodoStr).trim();
+  // Se o próprio valor já for uma data completa, usa-a diretamente.
+  if(/^\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}$/.test(pd)){let dd=parseDataBR(pd);return dd?formatDataBR(dd):'';}
+  let base=parseDataBR(baseStr);
+  if(!base)return '';
+  let per=extrairPeriodo(periodoStr);
+  if(!per)return '';
+  return formatDataBR(somarPeriodo(base,per.n,per.unidade));
+}
+
 /* ===================== ESTADO + UI ===================== */
-const PROPS=['Nome','Sobrenome','Email','Número de Telefone','CPF/CNPJ','Nome da Empresa','Cargo','Cargo RH','Faixa de Colaboradores','Valor da Mensalidade','Cliente Sólides/Tangerino?','Observação','Informações de Negócios','Outros'];
+const PROPS=['Nome','Sobrenome','Email','Número de Telefone','CPF/CNPJ','Nome da Empresa','Cargo','Cargo RH','Faixa de Colaboradores','Valor da Mensalidade','Cliente Sólides/Tangerino?','Observação','Informações de Negócios','Data de Vigência Alper','Outros'];
 const COMPUTED=new Set(['Nome','Sobrenome','Cargo','Cargo RH','Faixa de Colaboradores','CPF/CNPJ']);
 let rawData=[], preserveCols=[], dfDados=[], dfInvalidos=[], logText='', detectInfo='', currentFileName='';
 let statDetailData={}; // {chave: {titulo, linhas}} — usado pelos cards clicáveis de estatística
@@ -1007,6 +1060,12 @@ function runPipeline(){
     let faixaKey=Object.keys(headerMap).find(k=>headerMap[k]==='Faixa de Colaboradores');
     let docKey=Object.keys(headerMap).find(k=>headerMap[k]==='CPF/CNPJ')||headers.find(h=>!allPreserve.includes(h)&&ehColunaDoc(h));
     let areaCols=headers.filter(h=>h!==roleKey&&!allPreserve.includes(h)&&isAreaColumn(h));
+    // Data de Vigência Alper: base = primeira coluna da planilha (data/hora); fonte = coluna do período
+    const baseDataCol=headers[0]||'';
+    let vigenciaKey=Object.keys(headerMap).find(k=>headerMap[k]==='Data de Vigência Alper');
+    if(!vigenciaKey&&selectedProps.has('Data de Vigência Alper')){
+      vigenciaKey=headers.find(h=>/proxima.*renova|vencimento.*contrato|renovacao.*vencimento|\brenova|\bvencimento/i.test(norm(h)));
+    }
     const outrosText=document.getElementById('outros-text').value.trim();
     const obsText=document.getElementById('obs-text').value.trim();
     // toda propriedade com coluna mapeada entra na saída (mesmo sem o chip marcado)
@@ -1019,7 +1078,8 @@ function runPipeline(){
       (roleKey?' · cargo → <strong>'+esc(roleKey)+'</strong>':'')+
       (areaCols.length?' · áreas → <strong>'+areaCols.map(esc).join(', ')+'</strong>':'')+
       (faixaKey?' · faixa → <strong>'+esc(faixaKey)+'</strong>':'')+
-      (docKey?' · CPF/CNPJ → <strong>'+esc(docKey)+'</strong>':'');
+      (docKey?' · CPF/CNPJ → <strong>'+esc(docKey)+'</strong>':'')+
+      (selectedProps.has('Data de Vigência Alper')?' · vigência → base <strong>'+esc(baseDataCol||'(nenhuma!)')+'</strong> + período <strong>'+esc(vigenciaKey||'(nenhuma!)')+'</strong>':'');
     setProgress(40);
 
     // ── Expansão de múltiplos e-mails ──────────────────────────────────────────
@@ -1077,6 +1137,10 @@ function runPipeline(){
         mapped['Número de Telefone']=telLimpo;
       }
       if(selectedProps.has('Valor da Mensalidade')&&mapped['Valor da Mensalidade'])mapped['Valor da Mensalidade']=limparMensalidade(mapped['Valor da Mensalidade']);
+      if(selectedProps.has('Data de Vigência Alper')){
+        const periodoStr=vigenciaKey?row[vigenciaKey]:'';
+        mapped['Data de Vigência Alper']=calcVigenciaAlper(baseDataCol?row[baseDataCol]:'',periodoStr);
+      }
       if(selectedProps.has('Informações de Negócios')&&alperAtivo){
         // Preenche Informações de Negócios com o valor transformado da coluna "conhecer alternativas"
         const colConhecer=headers.find(h=>/conhecer.*alternativas|alternativas.*gestao/i.test(norm(h)));
