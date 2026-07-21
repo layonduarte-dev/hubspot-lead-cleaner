@@ -318,7 +318,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>HubSpot Lead Cleaner v8.3</b> — aplicação standalone · tema Dark Purple · histórico local</div>
+  <div class="footer"><b>HubSpot Lead Cleaner v8.4</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -705,35 +705,51 @@ function limparMensalidade(v){
 function mapCargoRH(role,areaText){
   const r=norm(role),a=norm(areaText||''),ctx=(r+' '+a).trim();
   if(!ctx)return 'Outros';
-  if(/\b(socio|proprietario|founder|ceo|fundador|presidente|dono|empresario|c-level)\b/.test(ctx))return 'Sócio/CEO';
+
+  // --- Cargos diretos (independem de contexto de RH) ---
+  if(/\b(socio|socia|proprietari[oa]|co-?founder|founder|ceo|fundador[a]?|presidente|dono|dona|empresari[oa]|c-level)\b/.test(ctx))return 'Sócio/CEO';
   if(/\bcoach\b/.test(ctx))return 'Coach';
-  if(/\b(contador|contabil|contabilidade)\b/.test(ctx))return 'Contador';
-  if(/\b(professor|docente)\b/.test(ctx))return 'Professor';
-  if(/\b(estudante|universitario|graduando)\b/.test(ctx))return 'Estudante';
+  if(/\bcontador/.test(ctx)||/\b(contabil|contabilidade|ciencias contabeis)\b/.test(ctx))return 'Contador';
+  if(/\b(professor|professora|docente)\b/.test(ctx))return 'Professor';
+  if(/\b(estudante|universitari[oa]|graduand[oa]|academic[oa])\b/.test(ctx))return 'Estudante';
   if(/recoloca/.test(ctx))return 'Buscando recolocação';
   if(/business partner|hrbp|bp de rh/.test(ctx))return 'Business Partner de RH';
-  // Verifica se área é RH ou DP — se não for, usa apenas o cargo para o de/para
-  const isRhArea=/\b(rh|recursos humanos|gestao de pessoas|people|gente|talentos|dp|departamento pessoal)\b/.test(a);
-  const dp=/\bdp\b/.test(ctx)||ctx.includes('departamento pessoal');
-  // Se a área NÃO é RH (ex: Transporte, Comercial, Financeiro), mapeia só pelo cargo
-  if(!isRhArea&&a){
-    if(/\b(administrativo|financeiro|recepcionista|secretaria|contabil|contabilidade)\b/.test(ctx))return 'Administrativo/Financeiro';
-    if(/\b(diretor|diretora|head|vp|cho|presidente)\b/.test(r))return 'Sócio/CEO';
-    if(/\b(gerente|manager)\b/.test(r))return 'Outros';
-    if(/\b(coordenador|coordenadora|coord)\b/.test(r))return 'Outros';
-    if(/\b(analista|especialista|consultor|consultora)\b/.test(r))return 'Outros';
-    return 'Outros';
+
+  // --- Indicadores de que o cargo/área É de RH ou DP ---
+  const RH_IND=/\b(rh|recursos humanos|gente|pessoas|gestao de pessoas|talento|talentos|people|dho|desenvolvimento humano|capital humano|recrutamento|selecao|talent acquisition|aquisicao de talentos|cargos e salarios)\b/;
+  const DP_IND=/\b(dp|departamento pessoal|folha de pagamento|folha de pagto)\b/;
+  const roleRH=RH_IND.test(r),roleDP=DP_IND.test(r);
+  const areaRH=RH_IND.test(a),areaDP=DP_IND.test(a);
+
+  // cargo "genérico": só nível hierárquico + conectores, sem domínio próprio (ex: "Diretora", "Analista")
+  const roleResto=r
+    .replace(/\b(analista|especialista|assistente|auxiliar|coordenador|coordenadora|coord|gerente|manager|diretor|diretora|head|vp|cho|chro|supervisor|supervisora|consultor|consultora|estagiario|estagiaria|estagio|trainee|aprendiz|superintendente|lider|encarregado|chefe|tecnico|tecnica)\b/g,' ')
+    .replace(/\b(rh|recursos|humanos|gente|pessoas|dp|departamento|pessoal|de|da|do|das|dos|e|em|na|no)\b/g,' ')
+    .replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim();
+  const roleBare=roleResto==='';
+
+  // Só é RH/DP se o PRÓPRIO cargo indicar RH/DP; a área só promove quando o cargo é genérico
+  let isRH=false,isDP=false;
+  if(roleRH||roleDP){isRH=roleRH;isDP=roleDP;}
+  else if(roleBare&&(areaRH||areaDP)){isRH=areaRH;isDP=areaDP;}
+
+  if(isRH||isDP){
+    const dp=isDP&&!isRH;   // prioriza RH quando ambíguo
+    if(/\b(diretor|diretora|head|vp|cho|chro)\b/.test(r))return dp?'Diretor de DP':'Diretor de RH';
+    if(/\bsuperintendente\b/.test(r))return 'Coordenador de RH';
+    if(/\b(gerente|manager)\b/.test(r))return dp?'Gerente de DP':'Gerente de RH';
+    if(/\b(coordenador|coordenadora|coord)\b/.test(r))return dp?'Coordenador de DP':'Coordenador de RH';
+    if(/\b(supervisor|supervisora)\b/.test(r))return 'Supervisor de RH';
+    if(/\b(consultor|consultora)\b/.test(r))return dp?'Consultor de DP':'Consultor de RH';
+    if(/\bestagi/.test(r)||/\b(trainee|aprendiz)\b/.test(r))return dp?'Estagiário de DP':'Estagiário de RH';
+    if(/\b(assistente|auxiliar)\b/.test(r))return 'Assistente de RH';
+    if(/\b(analista|especialista)\b/.test(r))return dp?'Analista DP':'Analista de RH';
+    // É de RH/DP mas sem nível explícito (ex: "Talent Acquisition", "RH", "Recrutamento e Seleção")
+    return dp?'Analista DP':'Analista de RH';
   }
-  // Área é RH ou sem área — faz de/para completo
-  if(/\b(diretor|diretora|head|vp|cho)\b/.test(r))return dp?'Diretor de DP':'Diretor de RH';
-  if(/\b(gerente|manager)\b/.test(r))return dp?'Gerente de DP':'Gerente de RH';
-  if(/\b(coordenador|coordenadora|coord)\b/.test(r))return dp?'Coordenador de DP':'Coordenador de RH';
-  if(/\b(supervisor|supervisora)\b/.test(r))return 'Supervisor de RH';
-  if(/\b(consultor|consultora)\b/.test(r))return dp?'Consultor de DP':'Consultor de RH';
-  if(/\b(estagiari|trainee|estagio)\b/.test(r))return dp?'Estagiário de DP':'Estagiário de RH';
-  if(/\b(assistente|auxiliar)\b/.test(r))return 'Assistente de RH';
-  if(/\b(analista|especialista)\b/.test(r))return dp?'Analista DP':'Analista de RH';
-  if(/\b(administrativo|financeiro|recepcionista|secretaria)\b/.test(ctx))return 'Administrativo/Financeiro';
+
+  // Não é RH/DP
+  if(/\b(administrativo|financeiro|recepcionista|secretari[oa])\b/.test(ctx))return 'Administrativo/Financeiro';
   return 'Outros';
 }
 /* Se o Cargo for SOMENTE indicação de área (RH, RH/DP, Recursos Humanos, DP, Departamento Pessoal),
