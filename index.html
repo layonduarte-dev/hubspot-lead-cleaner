@@ -318,7 +318,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>HubSpot Lead Cleaner v8.4</b> — aplicação standalone · tema Dark Purple · histórico local</div>
+  <div class="footer"><b>HubSpot Lead Cleaner v8.5</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -421,6 +421,14 @@ for(let t of TLDS_VALIDOS){
   const dup=t+t[t.length-1]; // ex: 'com.br'+'r' = 'com.brr'
   if(dom.endsWith('.'+dup)){dom=dom.slice(0,-1);break;}
 }
+// 6. pontos sobrando no fim: dominio.com. → dominio.com
+dom=dom.replace(/\.+$/,'');
+// 7. TLD BR truncado: .com.b → .com.br (idem org/net/gov/edu/adv/eng/med)
+dom=dom.replace(/\.(com|org|net|gov|edu|adv|eng|med)\.b$/,'.$1.br');
+// 8. .com com letra extra colada no fim: hotmail.comn → hotmail.com (não afeta .com.br/.com.ar pois exige letra, não ponto)
+dom=dom.replace(/\.com[a-z]$/,'.com');
+// 9. typos comuns de .com (m embaralhado/trocado): .cmo/.ocm/.vom/.con/.comn → .com
+dom=dom.replace(/\.(cmo|ocm|vom|xom|cpm|copm|con|cim|coom|comn)$/,'.com');
 return local+'@'+dom;}
 function validSyntax(e){return !!e&&/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);}
 const BLOCKED_DOMAINS=new Set(['solides.com.br','tangerino.com.br']);
