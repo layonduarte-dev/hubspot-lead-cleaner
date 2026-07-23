@@ -1080,6 +1080,7 @@ function runPipeline(){
 
     let emailKey=Object.keys(headerMap).find(k=>headerMap[k]==='Email')||headers.find(h=>norm(h).includes('mail'));
     let roleKey=Object.keys(headerMap).find(k=>headerMap[k]==='Cargo');
+    let cargoRHKey=Object.keys(headerMap).find(k=>headerMap[k]==='Cargo RH');
     let nomeKey=Object.keys(headerMap).find(k=>headerMap[k]==='Nome');
     let faixaKey=Object.keys(headerMap).find(k=>headerMap[k]==='Faixa de Colaboradores');
     let docKey=Object.keys(headerMap).find(k=>headerMap[k]==='CPF/CNPJ')||headers.find(h=>!allPreserve.includes(h)&&ehColunaDoc(h));
@@ -1134,17 +1135,24 @@ function runPipeline(){
       if(selectedProps.has('Cargo')||selectedProps.has('Cargo RH')){
         let role=roleKey?row[roleKey]:'';
         let areas=areaCols.map(c=>row[c]);
-        let temCargoRHOriginal=Object.keys(headerMap).some(k=>headerMap[k]==='Cargo RH');
+        // Se o Cargo for só área (RH/DP), normaliza para Analista de RH / Analista DP
+        let roleEfetivo=cargoSoAreaRH(role)||role;
+        // Valor original da coluna Cargo RH (se existir na planilha)
+        let cargoRHOriginal=String(cargoRHKey?(row[cargoRHKey]??''):'').trim();
+        let temCargoRHOriginal=cargoRHOriginal!==''&&!['nan','null','undefined'].includes(cargoRHOriginal.toLowerCase());
+        // Coluna Cargo → sempre faz o de/para para preencher a propriedade Cargo
         if(roleKey){
-          // Se o Cargo for só área (RH/DP), normaliza para Analista de RH / Analista DP
-          let roleEfetivo=cargoSoAreaRH(role)||role;
-          // Tem coluna Cargo → faz o de/para normalmente
           let cargoUnificado=combineCargo(roleEfetivo,areas);
           if(cargoUnificado)mapped['Cargo']=cargoUnificado;
+        }
+        // Cargo RH: o valor que já veio na planilha PREVALECE sobre tudo.
+        // Só quando não existe Cargo RH é que criamos o de/para a partir do Cargo.
+        if(temCargoRHOriginal){
+          mapped['Cargo RH']=cargoRHOriginal;
+        } else if(roleKey){
           mapped['Cargo RH']=mapCargoRH(roleEfetivo,areas.join(' '));
-        } else if(temCargoRHOriginal){
-          // Só tem Cargo RH (sem Cargo) → preserva o valor original como veio
-          // mapped['Cargo RH'] já foi preenchido pelo headerMap acima, não sobrescreve
+        } else {
+          mapped['Cargo RH']='';
         }
       }
       if(selectedProps.has('Faixa de Colaboradores')&&mapped['Faixa de Colaboradores'])mapped['Faixa de Colaboradores']=mapFaixa(mapped['Faixa de Colaboradores']);
