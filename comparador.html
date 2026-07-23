@@ -236,6 +236,22 @@
   .stat-box .num{font-size:24px;font-weight:700}
   .stat-box .lbl{font-size:11.5px;color:var(--text-3);margin-top:2px}
   .stat-box.ok .num{color:var(--green)} .stat-box.warn .num{color:var(--amber)} .stat-box.err .num{color:var(--red)} .stat-box.info .num{color:var(--blue)}
+  .stat-box.clickable{cursor:pointer;transition:.14s}
+  .stat-box.clickable:hover{border-color:var(--accent);background:var(--accent-soft);transform:translateY(-1px)}
+  .stat-box.clickable::after{content:'ver linhas →';display:block;font-size:10px;color:var(--accent);margin-top:5px;opacity:0;transition:.14s}
+  .stat-box.clickable:hover::after{opacity:1}
+  /* Painel de auditoria de campos preenchidos */
+  .audit-box{border:1px solid var(--border-2);border-radius:12px;padding:1rem 1.1rem;margin-top:1.1rem;background:var(--surface-2)}
+  .audit-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .audit-head h3{font-size:14.5px;font-weight:600;margin:0}
+  .audit-total{font-size:12px;color:var(--accent);font-weight:600}
+  .audit-sub{font-size:12.5px;color:var(--text-3);margin:.3rem 0 .85rem;line-height:1.5}
+  .audit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+  .audit-item{background:var(--surface);border:1px solid transparent;border-radius:10px;padding:.7rem .8rem;cursor:pointer;transition:.14s}
+  .audit-item:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .audit-n{font-size:19px;font-weight:700;color:var(--accent);line-height:1.15}
+  .audit-col{font-size:13px;font-weight:500;color:var(--text);margin-top:1px;word-break:break-word}
+  .audit-por{font-size:11px;color:var(--text-3);margin-top:3px;word-break:break-word}
   .filter-chips{display:flex;gap:8px;flex-wrap:wrap;margin:.8rem 0 .2rem}
   .fchip{font-size:12.5px;padding:6px 14px;border-radius:20px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text-2);transition:.15s}
   .fchip.on{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;border-color:transparent}
@@ -342,6 +358,7 @@
     </div>
 
     <div id="cmp-cards-wrap" style="margin-top:1.1rem"></div>
+    <div id="audit-preench-wrap"></div>
     <div class="alerta-fora hidden" id="alerta-dup"></div>
 
     <div class="filter-chips" id="filter-chips"></div>
@@ -880,6 +897,8 @@ function comparar(){
       /* 7) Cards de comparação por secundária */
       secResumos=secs.map((s,i)=>({nome:s.nome,ausentes:ausentesPorSec[i],total:base.rows.length,filtroKey:'aus_'+i}));
       renderCmpCards(secResumos, apenasBase, emTodas);
+      ativarStatsClicaveis(null);  // no modo Comparar os stats não viram filtro
+      document.getElementById('audit-preench-wrap').innerHTML='';
 
       /* 8) Alerta de duplicatas */
       const alerta=document.getElementById('alerta-dup');
@@ -964,6 +983,7 @@ function juntar(){
       /* 3) Merge com prioridade: 1ª planilha sobrepõe as demais */
       const byKey={};        // norm(chave) -> {out, fontes:Set}
       const semChaveRows=[]; // linhas sem chave preenchida
+      const tallyPreench={}; // coluna -> {total, por:{arquivo:n}} — auditoria de campos preenchidos
       const statsPorArq=arquivos.map(a=>({nome:a.nome,linhas:a.rows.length,novos:0,camposPreenchidos:0}));
 
       arquivos.forEach((a,idx)=>{
@@ -1007,6 +1027,7 @@ function juntar(){
             // já existe: preenche APENAS campos vazios (arquivo anterior tem prioridade)
             const entry=byKey[k];
             entry.fontes.add(a.nome);
+            if(!entry.preenchidos)entry.preenchidos=[];
             Object.entries(mapCols).forEach(([h,oc])=>{
               const val=sanitizeFormula(r[h]??'')??'';
               // Base referência prevalece — MAS só quando tem valor. Se está em branco
@@ -1014,12 +1035,23 @@ function juntar(){
               if(ehVazio(entry.out[oc])&&!ehVazio(val)){
                 entry.out[oc]=val;
                 statsPorArq[idx].camposPreenchidos++;
+                // AUDITORIA: registra qual coluna foi preenchida e por qual planilha
+                entry.preenchidos.push({col:oc,arq:a.nome});
+                tallyPreench[oc]=tallyPreench[oc]||{total:0,por:{}};
+                tallyPreench[oc].total++;
+                tallyPreench[oc].por[a.nome]=(tallyPreench[oc].por[a.nome]||0)+1;
               }
             });
             // Data calculada: só preenche se vazio
             if(converterData&&a.renovCol&&a.checked.has(a.renovCol)&&!entry.out[COL_DATA_CALC]&&baseData){
               const d=converterPeriodo(r[a.renovCol],baseData);
-              if(d){entry.out[COL_DATA_CALC]=d;statsPorArq[idx].camposPreenchidos++;}
+              if(d){
+                entry.out[COL_DATA_CALC]=d;statsPorArq[idx].camposPreenchidos++;
+                entry.preenchidos.push({col:COL_DATA_CALC,arq:a.nome});
+                tallyPreench[COL_DATA_CALC]=tallyPreench[COL_DATA_CALC]||{total:0,por:{}};
+                tallyPreench[COL_DATA_CALC].total++;
+                tallyPreench[COL_DATA_CALC].por[a.nome]=(tallyPreench[COL_DATA_CALC].por[a.nome]||0)+1;
+              }
             }
           }
         });
@@ -1029,13 +1061,27 @@ function juntar(){
       /* 4) Constrói baseRows finais */
       baseRows=[];
       let datasConv=0;
+      const houvePreench=Object.keys(tallyPreench).length>0;
+      const COL_PREENCH='Campos preenchidos por outra planilha';
+      const COL_PREENCH_POR='Preenchido por';
       const finalCols=[...colsSaida,'Fontes'];
+      if(houvePreench){finalCols.push(COL_PREENCH);finalCols.push(COL_PREENCH_POR);}
       if(usouHubspot)finalCols.push('Status HubSpot');
       if(incOrigem)finalCols.push('Arquivo de Origem (1º)');
 
       Object.entries(byKey).forEach(([k,entry])=>{
         const o=entry.out;
         o['Fontes']=[...entry.fontes].join(', ');
+        // AUDITORIA: quais colunas estavam em branco e foram preenchidas por outra planilha
+        const pre=entry.preenchidos||[];
+        const preCols=[...new Set(pre.map(p=>p.col))];
+        const preArqs=[...new Set(pre.map(p=>p.arq))];
+        if(houvePreench){
+          o[COL_PREENCH]=preCols.join(', ');
+          o[COL_PREENCH_POR]=preArqs.join(', ');
+        }
+        o._nPreench=preCols.length;
+        o._preenchCols=preCols;
         if(usouHubspot){
           o['Status HubSpot']=setHubspot.has(k)?'No HubSpot':'Fora do HubSpot';
           o._foraHubspot=!setHubspot.has(k);
@@ -1049,6 +1095,8 @@ function juntar(){
       // linhas sem chave: também vão para o consolidado, marcadas
       semChaveRows.forEach(o=>{
         o['Fontes']=o._fontes.join(', ');
+        if(houvePreench){o[COL_PREENCH]='';o[COL_PREENCH_POR]='';}
+        o._nPreench=0;o._preenchCols=[];
         if(usouHubspot){o['Status HubSpot']='—';o._foraHubspot=false;}
         if(incOrigem)o['Arquivo de Origem (1º)']=arquivos[o._origemIdx].nome;
         o._nFontes=1;
@@ -1069,6 +1117,10 @@ function juntar(){
       document.getElementById('st-todas').nextElementSibling.textContent='Duplicatas mescladas';
       document.getElementById('st-solobase').textContent=semChaveRows.length;
       document.getElementById('st-solobase').nextElementSibling.textContent='Linhas sem chave';
+      // stat-boxes viram atalhos de filtro no modo Juntar
+      ativarStatsClicaveis({
+        'st-base':'todos','st-chaves':'todos','st-todas':'multi','st-solobase':'semchave'
+      });
       const dbox=document.getElementById('st-datas-box');
       if(converterData&&arquivos.some(a=>a.renovCol&&a.checked.has(a.renovCol))){
         dbox.classList.remove('hidden');document.getElementById('st-datas').textContent=datasConv;
@@ -1076,6 +1128,8 @@ function juntar(){
 
       /* 6) Cards de resumo por arquivo */
       renderJuntarCards(statsPorArq, totalEntrada, dedup);
+      /* 6b) Painel: quais colunas estavam em branco e foram preenchidas */
+      renderAuditoriaPreench(tallyPreench);
 
       /* 7) Alerta */
       const alerta=document.getElementById('alerta-dup');
@@ -1101,6 +1155,58 @@ function juntar(){
   },60);
 }
 
+/* Torna os cards de estatística clicáveis (viram atalhos de filtro) */
+function ativarStatsClicaveis(mapa){
+  // limpa o estado anterior (evita vazar do modo Juntar para o Comparar)
+  ['st-base','st-chaves','st-todas','st-solobase','st-datas'].forEach(id=>{
+    const n=document.getElementById(id);if(!n)return;
+    const b=(n.closest&&n.closest('.stat-box'))||n.parentElement;
+    if(b){b.classList.remove('clickable');b.onclick=null;b.removeAttribute('title');}
+  });
+  Object.entries(mapa||{}).forEach(([id,filtro])=>{
+    const num=document.getElementById(id);
+    if(!num)return;
+    const box=num.closest ? num.closest('.stat-box') : null;
+    const alvo=box||num.parentElement;
+    if(!alvo)return;
+    alvo.classList.add('clickable');
+    alvo.setAttribute('title','Clique para ver essas linhas na tabela');
+    alvo.onclick=()=>{setFiltro(filtro);document.getElementById('filter-chips').scrollIntoView({behavior:'smooth',block:'center'});};
+  });
+}
+/* Painel: quais colunas estavam em branco e foram preenchidas por outra planilha */
+let _auditCols=[];   // nomes reais das colunas, na ordem do painel (evita escapar no onclick)
+function filtrarPorColPreench(i){
+  const col=_auditCols[i];
+  if(col===undefined)return;
+  setFiltro('preench_col::'+i);
+}
+function renderAuditoriaPreench(tally){
+  const wrap=document.getElementById('audit-preench-wrap');
+  if(!wrap)return;
+  const entries=Object.entries(tally||{}).sort((a,b)=>b[1].total-a[1].total);
+  _auditCols=entries.map(([col])=>col);
+  if(!entries.length){wrap.innerHTML='';return;}
+  const totalPre=entries.reduce((s,[,d])=>s+d.total,0);
+  wrap.innerHTML=
+    '<div class="audit-box">'+
+      '<div class="audit-head">'+
+        '<h3>🩹 Campos que estavam em branco e foram preenchidos</h3>'+
+        '<span class="audit-total">'+totalPre.toLocaleString('pt-BR')+' preenchimentos</span>'+
+      '</div>'+
+      '<div class="audit-sub">Estas colunas estavam vazias na planilha de maior prioridade e receberam o dado de outra. Clique numa coluna para ver só as linhas que foram completadas por ela.</div>'+
+      '<div class="audit-grid">'+
+        entries.map(([col,d],i)=>
+          '<div class="audit-item" onclick="filtrarPorColPreench('+i+')" title="Ver as linhas em que esta coluna foi preenchida">'+
+            '<div class="audit-n">'+d.total.toLocaleString('pt-BR')+'</div>'+
+            '<div class="audit-col">'+escHtml(col)+'</div>'+
+            '<div class="audit-por">'+Object.entries(d.por).map(([a,n])=>escHtml(a)+' ('+n.toLocaleString('pt-BR')+')').join(' · ')+'</div>'+
+          '</div>'
+        ).join('')+
+      '</div>'+
+    '</div>';
+}
+
 function renderJuntarCards(stats, totalEntrada, dedup){
   const wrap=document.getElementById('cmp-cards-wrap');
   let html='<div class="cmp-cards">';
@@ -1124,12 +1230,16 @@ function renderJuntarCards(stats, totalEntrada, dedup){
 
 function renderFiltrosJuntar(){
   const wrap=document.getElementById('filter-chips');
+  const nPre=baseRows.filter(r=>(r._nPreench||0)>0).length;
+  const nSemChave=baseRows.filter(r=>r._semChave).length;
   let html='<button class="fchip on" data-f="todos" onclick="setFiltro(\'todos\')">Todos ('+baseRows.length+')</button>';
   html+='<button class="fchip" data-f="multi" onclick="setFiltro(\'multi\')">🔗 Em várias planilhas</button>';
+  if(nPre)html+='<button class="fchip" data-f="preench" onclick="setFiltro(\'preench\')">🩹 Tiveram campos preenchidos ('+nPre.toLocaleString('pt-BR')+')</button>';
   arquivos.slice(1).forEach((a,i)=>{
     const idx=i+1;
     html+='<button class="fchip" data-f="from_'+idx+'" onclick="setFiltro(\'from_'+idx+'\')">➕ Adicionados por '+escHtml(a.nome.length>22?a.nome.slice(0,20)+'…':a.nome)+'</button>';
   });
+  if(nSemChave)html+='<button class="fchip" data-f="semchave" onclick="setFiltro(\'semchave\')">🔑 Sem chave ('+nSemChave+')</button>';
   if(usouHubspot)html+='<button class="fchip" data-f="hs_fora" onclick="setFiltro(\'hs_fora\')">🚫 Fora do HubSpot</button>';
   wrap.innerHTML=html;
 }
@@ -1196,6 +1306,13 @@ function linhasFiltradas(){
   if(m)return baseRows.filter(r=>r._presencas&&r._presencas[+m[1]]===false);
   // filtros do modo Juntar
   if(filtroAtual==='multi')return baseRows.filter(r=>(r._nFontes||0)>1);
+  if(filtroAtual==='semchave')return baseRows.filter(r=>r._semChave);
+  if(filtroAtual==='preench')return baseRows.filter(r=>(r._nPreench||0)>0);
+  if(filtroAtual.startsWith('preench_col::')){
+    const col=_auditCols[+filtroAtual.slice('preench_col::'.length)];
+    if(col===undefined)return baseRows;
+    return baseRows.filter(r=>(r._preenchCols||[]).includes(col));
+  }
   const mf=filtroAtual.match(/^from_(\d+)$/);
   if(mf)return baseRows.filter(r=>r._origemIdx===+mf[1]);
   return baseRows;
