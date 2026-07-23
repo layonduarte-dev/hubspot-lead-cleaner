@@ -210,6 +210,24 @@
   .col-item:hover{background:var(--accent-soft)}
   .col-item input{accent-color:var(--accent);width:15px;height:15px;flex:0 0 auto}
   .col-item .tag-renov{font-size:10px;color:var(--amber)}
+  /* Painel consolidado de colunas da planilha final (modo Juntar) */
+  .cf-box{border:1px solid var(--border-2);border-radius:12px;padding:1rem 1.1rem;margin-bottom:1rem;background:var(--surface-2)}
+  .cf-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:.35rem}
+  .cf-head h3{font-size:14.5px;font-weight:600;margin:0}
+  .cf-sub{font-size:12.5px;color:var(--text-3);margin-bottom:.8rem;line-height:1.5}
+  .cf-actions{display:flex;gap:6px;align-items:center}
+  .cf-actions button{font-size:12px;padding:4px 10px;border:1px solid var(--border-2);border-radius:7px;background:var(--surface);color:var(--text-2);cursor:pointer}
+  .cf-actions button:hover{background:var(--accent-soft);color:var(--text)}
+  .cf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:7px}
+  .cf-item{display:flex;align-items:flex-start;gap:9px;font-size:13px;padding:7px 9px;border-radius:9px;border:1px solid transparent;background:var(--surface);cursor:pointer;user-select:none;transition:.12s}
+  .cf-item:hover{border-color:var(--border-2)}
+  .cf-item.on{border-color:var(--accent);background:var(--accent-soft)}
+  .cf-item.locked{opacity:.85;cursor:not-allowed}
+  .cf-item input{accent-color:var(--accent);width:16px;height:16px;flex:0 0 auto;margin-top:1px}
+  .cf-name{font-weight:500;color:var(--text);word-break:break-word}
+  .cf-meta{font-size:11px;color:var(--text-3);display:block;margin-top:1px}
+  .cf-chave{font-size:10px;color:var(--accent);font-weight:600}
+  .cf-count{font-size:12px;color:var(--text-3);margin-top:.7rem}
   .col-actions{display:flex;gap:8px;margin-top:.6rem}
   .col-actions button{font-size:11.5px;background:none;border:none;color:var(--accent);padding:2px 4px}
   .col-actions button:hover{text-decoration:underline}
@@ -307,6 +325,7 @@
       <label><input type="checkbox" id="opt-convdata" checked style="accent-color:var(--accent)"> Converter "renovação em X meses" em data exata (DD/MM/AAAA)</label>
       <label><input type="checkbox" id="opt-origem" style="accent-color:var(--accent)"> Adicionar coluna "Arquivo de Origem" no consolidado</label>
     </div>
+    <div id="colfinais-box" class="hidden"></div>
     <button class="btn-run" id="btn-run" onclick="processar()">🚀 Comparar planilhas</button>
     <div class="progress-bar hidden" id="progress-bar" style="margin-top:.9rem;height:8px;background:var(--surface-2);border-radius:6px;overflow:hidden"><div class="progress-fill" id="progress-fill"></div></div>
   </div>
@@ -356,6 +375,7 @@ let usouHubspot = false;
 let filtroAtual = 'todos';
 let modo = 'comparar'; // 'comparar' | 'juntar'
 let juntarResumos = [];  // stats por arquivo no modo Juntar
+let colsFinaisSel = null;  // Set de norm(header) — colunas que vão para a planilha final (modo Juntar)
 
 function setModo(m){
   modo=m;
@@ -570,6 +590,90 @@ function marcarTodas(i,v){
 }
 function setColSel(i,tipo,valor){arquivos[i][tipo]=valor||null;renderFiles();}
 
+/* ---------- colunas da planilha final (modo Juntar) ---------- */
+/* Catálogo consolidado: unifica os headers de TODAS as planilhas por norm(),
+   igual ao que o merge faz. Mostra em quais arquivos cada coluna existe. */
+function catalogoColsFinais(){
+  const cat=[],map={};
+  arquivos.forEach(a=>{
+    a.headers.forEach(h=>{
+      const nk=norm(h);
+      if(!(nk in map)){map[nk]={nk,label:h,arquivos:[],isChave:false};cat.push(map[nk]);}
+      if(!map[nk].arquivos.includes(a.nome))map[nk].arquivos.push(a.nome);
+      if(a.chaveCol&&norm(a.chaveCol)===nk)map[nk].isChave=true;
+    });
+  });
+  return cat;
+}
+/* Inicializa/atualiza a seleção. Colunas novas entram marcadas; a chave é sempre incluída. */
+let colsFinaisVistas = new Set(); // nk já exibidos ao usuário (para não remarcar o que ele desmarcou)
+function garantirColsFinais(){
+  const cat=catalogoColsFinais();
+  if(colsFinaisSel===null)colsFinaisSel=new Set();
+  // coluna nunca vista antes (arquivo recém-anexado) entra marcada por padrão;
+  // coluna já vista mantém a escolha do usuário
+  cat.forEach(c=>{
+    if(!colsFinaisVistas.has(c.nk)){colsFinaisVistas.add(c.nk);colsFinaisSel.add(c.nk);}
+    if(c.isChave)colsFinaisSel.add(c.nk); // a chave nunca sai
+  });
+  return cat;
+}
+/* Reflete a seleção global nos a.checked de cada arquivo — é o que o merge consome. */
+function sincronizarCheckedComFinais(){
+  if(!colsFinaisSel)return;
+  arquivos.forEach(a=>{a.checked=new Set(a.headers.filter(h=>colsFinaisSel.has(norm(h))));});
+}
+function toggleColFinal(nk,el){
+  if(el.disabled)return;
+  if(colsFinaisSel.has(nk))colsFinaisSel.delete(nk);else colsFinaisSel.add(nk);
+  sincronizarCheckedComFinais();
+  renderColsFinais();
+}
+function marcarTodasFinais(v){
+  const cat=catalogoColsFinais();
+  colsFinaisSel = v ? new Set(cat.map(c=>c.nk)) : new Set();
+  cat.forEach(c=>{if(c.isChave)colsFinaisSel.add(c.nk);}); // chave nunca sai
+  sincronizarCheckedComFinais();
+  renderColsFinais();
+}
+function renderColsFinais(){
+  const box=document.getElementById('colfinais-box');
+  if(!box)return;
+  if(modo!=='juntar'||arquivos.length===0){box.classList.add('hidden');box.innerHTML='';return;}
+  const cat=garantirColsFinais();
+  sincronizarCheckedComFinais();
+  const total=cat.length, sel=cat.filter(c=>colsFinaisSel.has(c.nk)).length;
+  box.className='cf-box';
+  box.innerHTML=
+    '<div class="cf-head">'+
+      '<h3>🧩 Colunas da planilha final</h3>'+
+      '<div class="cf-actions">'+
+        '<button onclick="marcarTodasFinais(true)">marcar todas</button>'+
+        '<button onclick="marcarTodasFinais(false)">desmarcar todas</button>'+
+      '</div>'+
+    '</div>'+
+    '<div class="cf-sub">Marque as colunas que devem existir no resultado. Colunas com o mesmo nome em planilhas diferentes viram <b>uma só</b> — se estiver vazia em uma e preenchida em outra, o valor é aproveitado. A <b>chave</b> entra sempre.</div>'+
+    '<div class="cf-grid">'+
+      cat.map(c=>{
+        const on=colsFinaisSel.has(c.nk);
+        const lock=c.isChave;
+        const emQtas=c.arquivos.length;
+        const meta=emQtas===arquivos.length
+          ? 'em todas as '+arquivos.length+' planilhas'
+          : 'só em: '+c.arquivos.join(', ');
+        return '<label class="cf-item'+(on?' on':'')+(lock?' locked':'')+'">'+
+          '<input type="checkbox" '+(on?'checked ':'')+(lock?'disabled ':'')+
+            'onchange="toggleColFinal(this.dataset.nk,this)" data-nk="'+escHtml(c.nk)+'">'+
+          '<span><span class="cf-name">'+escHtml(c.label)+'</span>'+
+            (lock?' <span class="cf-chave">🔑 chave</span>':'')+
+            '<span class="cf-meta">'+escHtml(meta)+'</span></span>'+
+        '</label>';
+      }).join('')+
+    '</div>'+
+    '<div class="cf-count">'+sel+' de '+total+' colunas selecionadas</div>';
+  box.classList.remove('hidden');
+}
+
 function renderFiles(){
   const panel=document.getElementById('files-panel');
   panel.innerHTML='';
@@ -606,14 +710,15 @@ function renderFiles(){
     const dhSelHtml=a.renovCol
       ?'<label title="Data usada como base para calcular a renovação">Base para renovação: <select onchange="setColSel('+i+',\'dataHoraCol\',this.value)">'+optsDh+'</select></label>'
       :'';
-    // No modo Juntar TODOS os cards mostram checkboxes; no Comparar só a base
-    const mostrarChecks = modo==='juntar' || isBase;
+    // No modo Juntar as colunas são escolhidas no painel consolidado (card de ação).
+    // No modo Comparar, só a base mostra checkboxes.
+    const mostrarChecks = (modo==='comparar' && isBase);
     const notaSec = (modo==='comparar' && !isBase)
       ? '<div style="font-size:12px;color:var(--text-3);margin-top:.5rem">💡 No modo <b>Comparar</b>, só a chave desta planilha é usada. As colunas não vão para o relatório.</div>'
-      : '';
-    const legenda = modo==='juntar'
-      ? 'as colunas marcadas <b>de cada planilha</b> entram no consolidado (dedupe por chave)'
-      : 'as colunas marcadas da <b>base</b> entram no relatório';
+      : (modo==='juntar'
+        ? '<div style="font-size:12px;color:var(--text-3);margin-top:.5rem">💡 As colunas do resultado são escolhidas em <b>🧩 Colunas da planilha final</b>, logo abaixo.</div>'
+        : '');
+    const legenda = 'as colunas marcadas da <b>base</b> entram no relatório';
     card.innerHTML=
       '<div class="file-card-head">'+
         moveHtml+
@@ -644,6 +749,7 @@ function renderFiles(){
     panel.appendChild(card);
   });
   document.getElementById('card-run').classList.toggle('hidden',arquivos.length===0);
+  renderColsFinais();
 }
 
 /* ---------- processamento ---------- */
@@ -805,6 +911,10 @@ function juntar(){
   const semChave=arquivos.filter(a=>!a.chaveCol);
   if(semChave.length){toast('❌ Defina a chave em: '+semChave.map(a=>a.nome).join(', '),'err');return;}
 
+  // garante que a.checked reflita a seleção do painel "Colunas da planilha final"
+  garantirColsFinais();
+  sincronizarCheckedComFinais();
+
   document.getElementById('btn-run').disabled=true;
   setProgress(10);
   setTimeout(()=>{
@@ -834,7 +944,7 @@ function juntar(){
           }
         });
       });
-      if(!colsSaida.length){toast('⚠️ Marque ao menos uma coluna em algum arquivo','warn');document.getElementById('btn-run').disabled=false;return;}
+      if(!colsSaida.length){toast('⚠️ Marque ao menos uma coluna em "🧩 Colunas da planilha final"','warn');document.getElementById('btn-run').disabled=false;return;}
 
       /* 2) Cruzamento HubSpot (opcional) */
       let setHubspot=null;
