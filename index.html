@@ -443,12 +443,11 @@ function ehTextoAnomalo(s){
   const letras=s.replace(/[^a-zA-ZÀ-ú]/g,'');
   if(!letras.length)return true;
 
-  // 1. Tudo MAIÚSCULO com 3+ chars e sem acento (ex: BBBB, RHRH, TI, FINANCEIRO)
-  //    Exceto siglas reconhecidas de 2-3 letras que podem ser apelidos (ex: "Ed", "AL")
-  if(letras===letras.toUpperCase()&&letras.length>3){
-    // Admite se parece sigla de nome próprio em português (só consoantes+vogais raras)
-    return true;
-  }
+  // 1. (removido) Caixa alta NÃO é mais sinal de anomalia por si só.
+  //    Nomes legítimos vêm em CAIXA ALTA com frequência (ex: "NAYARA CELLY").
+  //    O Title Case padroniza depois; departamentos/siglas continuam pegos pelas
+  //    listas NAO_PESSOAL / CARGO_SETOR_RE / COMPANY_WORDS (que ignoram caixa)
+  //    e pela regra de ausência de vogais abaixo.
 
   // 2. Padrão AAaaa: primeira(s) maiúsculas + resto minúsculas, mas com 2+ maiúsculas no início (ex: AAron → não, mas AAaaa → sim)
   //    Detecta: 2+ letras maiúsculas consecutivas no INÍCIO seguidas de minúsculas (digitação errada / caps lock parcial)
@@ -464,9 +463,9 @@ function ehTextoAnomalo(s){
   // 3. Letra única repetida: AAA, BBBB, aaaa, zzzz
   if(/^(.)\1{2,}$/i.test(letras))return true;
 
-  // 4. Sequência de letras sem vogais (≥4 consoantes seguidas) = provável lixo/sigla
-  const semEspacos=s.replace(/\s/g,'');
-  if(/[bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ]{5,}/.test(semEspacos)&&!/[aeiouáàâãéêíóôõú]/i.test(semEspacos))return true;
+  // 4. Sem NENHUMA vogal (ex: "RHRH", "BBB", "XYZ", "TI", "DP") = sigla/lixo, não é nome.
+  //    Nomes de pessoa sempre têm vogal, então isso não derruba nome legítimo.
+  if(letras.length>=2&&!/[aeiouáàâãäéêèíîóôõöúùû]/i.test(letras))return true;
 
   // 5. Tokens com 1-2 letras sem ser preposição reconhecida → pode ser abreviação/sigla lixo
   //    (só aplica quando há tokens, ou seja texto com espaço)
@@ -518,11 +517,10 @@ function ehNomePessoal(texto){
   const ultimoPc=pc[pc.length-1];
   if(pc.length>1&&COMPANY_WORDS.has(ultimoPc))return false;
 
-  // Token único e não está na lista de nomes conhecidos, mas é todo maiúsculo com 4+ chars
+  // Token único muito curto (1-2 chars) que não é nome conhecido (ex: "Rh", "Ti")
   if(pc.length===1){
     const raw=s.trim();
     const letters=raw.replace(/[^a-zA-ZÀ-ú]/g,'');
-    if(letters.length>=4&&letters===letters.toUpperCase())return false;
     // Token único curto de 1-2 chars que não é nome (ex: "Rh", "Ti")
     if(letters.length<=2&&!NOMES_COMUNS.has(norm(letters)))return false;
   }
@@ -1622,8 +1620,8 @@ REGRAS OBRIGATÓRIAS:
 - Palavras-chave descritivas: "Gerente de", "Diretor de", "Analista de", "Especialista em", "Coordenador de", "Assistente de"
 - Padrão "[Cargo] de [Setor]": "Vendedor de Tecnologia" → vazio (é cargo, não nome)
 - Nomes genéricos/corporativos: "Comercial", "Operações", "Desenvolvimento", "Planejamento"
-- Descrições em maiúscula: "RECURSOS HUMANOS", "FINANCEIRO", "TI" (são departamentos)
-- Texto todo maiúsculo com 4+ letras: "BBBB", "AAAA", "RHRH" → vazio
+- Descrições em maiúscula: "RECURSOS HUMANOS", "FINANCEIRO", "TI" (são departamentos) → vazio
+- Lixo sem vogais / sigla: "BBBB", "RHRH", "XYZ" → vazio
 - Padrão anômalo (3+ maiúsculas no início): "AAaaa", "BBBbb" → vazio
 - Letra única repetida: "aaaa", "ZZZZ" → vazio
 - Empresa colada ao nome: "João Silva Construtora", "Pedro Ltda" → remova sufixo
@@ -1632,6 +1630,7 @@ REGRAS OBRIGATÓRIAS:
 - Não dá para identificar com segurança uma pessoa real → DEIXE VAZIO
 
 [QUANDO CORRIGIR]
+- Nome de PESSOA em CAIXA ALTA é nome válido: MANTENHA e capitalize → "NAYARA CELLY" → nome="Nayara" sobrenome="Celly"; "FLAVIANE DELMIRO" → nome="Flaviane" sobrenome="Delmiro". Nunca esvazie só por estar em maiúsculas.
 - nome_atual está grudado: separe corretamente → "Rogeriogomes" → nome="Rogerio" sobrenome="Gomes"
 - nome_atual tem sobrenome inválido (sigla ≤3 letras como "Ac"): use o e-mail para inferir ou deixe sobrenome vazio
 - nome_atual tem prefixo institucional colado: extraia só o nome humano
@@ -1647,6 +1646,7 @@ EXEMPLOS DE SAÍDA ESPERADA:
 - gerente.tecnologia@empresa.com | nome_atual: "Gerente de Tecnologia" → {"nome":"","sobrenome":""} // cargo, não nome
 - rogeriogomes@empresa.com | nome_atual: "Rogeriogomes" → {"nome":"Rogerio","sobrenome":"Gomes"}
 - rodrigo@empresa.com | nome_atual: "Rodrigo" → {"nome":"Rodrigo","sobrenome":""}
+- nayara.celly@empresa.com | nome_atual: "NAYARA CELLY" → {"nome":"Nayara","sobrenome":"Celly"} // caixa alta é nome válido, capitaliza
 
 Responda APENAS um JSON válido, array de objetos {"email","nome","sobrenome"}, sem texto extra, sem markdown.
 
