@@ -394,6 +394,8 @@ function sanitizeFormula(v){
   return v;
 }
 function escHtml(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+// Vazio "de verdade": string vazia, só espaços, ou tokens nulos comuns de exports (nan/null/undefined)
+function ehVazio(v){if(v==null)return true;const s=String(v).trim().toLowerCase();return s===''||s==='nan'||s==='null'||s==='undefined';}
 
 /* ---------- parsing de arquivos ---------- */
 function parseCSV(text){
@@ -897,7 +899,9 @@ function juntar(){
             entry.fontes.add(a.nome);
             Object.entries(mapCols).forEach(([h,oc])=>{
               const val=sanitizeFormula(r[h]??'')??'';
-              if((entry.out[oc]===''||entry.out[oc]==null)&&val!==''){
+              // Base referência prevalece — MAS só quando tem valor. Se está em branco
+              // (vazio, espaços ou nan/null) e a outra planilha tem valor, junta.
+              if(ehVazio(entry.out[oc])&&!ehVazio(val)){
                 entry.out[oc]=val;
                 statsPorArq[idx].camposPreenchidos++;
               }
