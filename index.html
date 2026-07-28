@@ -658,10 +658,6 @@ function limparTelefone(v){
   const ddd=digitos.slice(0,2);
   if(!DDD_VALIDOS.has(ddd))return '';
   const numero=digitos.slice(2);
-  // Celular (9 dígitos) deve começar com 9
-  if(numero.length===9&&numero[0]!=='9')return '';
-  // Fixo (8 dígitos) deve começar entre 2-5
-  if(numero.length===8&&!/^[2-5]/.test(numero))return '';
   // Rejeita todos os dígitos iguais (11111111111, 00000000000)
   if(/^(\d)\1+$/.test(digitos))return '';
   // Rejeita sequência simples (ex: 1234567890, 0123456789)
