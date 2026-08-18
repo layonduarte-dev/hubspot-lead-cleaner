@@ -318,7 +318,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>HubSpot Lead Cleaner v8.8</b> — aplicação standalone · tema Dark Purple · histórico local</div>
+  <div class="footer"><b>HubSpot Lead Cleaner v8.9</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -1698,63 +1698,106 @@ async function chamarGroq(apiKey,entradas){
   throw lastErr||new Error('Todos os modelos Groq falharam. Tente novamente em alguns instantes.');
 }
 
+/* ===== GEMINI v8.9: validação prévia da chave + erro real do Google ===== */
+let geminiCtx=null; // cache: {key, authMode, modelos}
+
+function geminiAuth(url,h,apiKey,mode){
+  if(mode==='header'){h['x-goog-api-key']=apiKey;return url;}
+  return url+(url.indexOf('?')>=0?'&':'?')+'key='+encodeURIComponent(apiKey);
+}
+
+function explicarErroGemini(status,body){
+  let msg='',code='';
+  try{const j=JSON.parse(body);msg=(j&&j.error&&j.error.message)||'';code=(j&&j.error&&j.error.status)||'';}
+  catch(e){msg=String(body||'').slice(0,200);}
+  const m=(msg+' '+code).toUpperCase();
+  if(m.indexOf('API_KEY_INVALID')>=0||m.indexOf('API KEY NOT VALID')>=0)
+    return 'Chave inválida ou revogada — gere outra em aistudio.google.com/apikey';
+  if(m.indexOf('ACCESS_TOKEN_TYPE_UNSUPPORTED')>=0)
+    return 'A chave (formato AQ.) foi recusada pelo endpoint nativo. Gere uma chave nova no AI Studio; se persistir, é restrição da conta no Google.';
+  if(m.indexOf('SERVICE_DISABLED')>=0||m.indexOf('HAS NOT BEEN USED')>=0)
+    return 'A Generative Language API não está habilitada no projeto do Google Cloud desta chave.';
+  if(m.indexOf('REFERER')>=0||m.indexOf('REFERRER')>=0)
+    return 'A chave está restrita a sites — libere layonduarte-dev.github.io/* nas restrições da chave.';
+  if(m.indexOf('PERMISSION_DENIED')>=0)
+    return 'Permissão negada para esta chave/projeto'+(msg?': '+msg:'');
+  if(m.indexOf('RESOURCE_EXHAUSTED')>=0||m.indexOf('QUOTA')>=0)
+    return 'Cota da API esgotada. Verifique limites/faturamento no Google Cloud.';
+  return 'HTTP '+status+(msg?' — '+msg:'');
+}
+
+const GEMINI_PREF=['gemini-2.5-flash','gemini-2.5-flash-lite','gemini-2.0-flash','gemini-2.0-flash-001','gemini-2.0-flash-lite','gemini-2.5-pro'];
+const GEMINI_BASE='https://generativelanguage.googleapis.com/v1beta/';
+
+async function geminiProbe(apiKey){
+  if(geminiCtx&&geminiCtx.key===apiKey)return geminiCtx;
+  let lastMsg='';
+  for(const mode of ['header','query']){
+    const h={};
+    const url=geminiAuth(GEMINI_BASE+'models',h,apiKey,mode);
+    let resp;
+    try{resp=await fetch(url,{headers:h});}
+    catch(e){lastMsg='Falha de rede ao validar a chave: '+e.message;continue;}
+    if(!resp.ok){lastMsg=explicarErroGemini(resp.status,await resp.text());continue;}
+    let data;
+    try{data=await resp.json();}catch(e){lastMsg='Resposta inválida ao listar modelos.';continue;}
+    const disp=(data.models||[])
+      .filter(m=>(m.supportedGenerationMethods||[]).indexOf('generateContent')>=0)
+      .map(m=>String(m.name||'').replace(/^models\//,''));
+    let modelos=GEMINI_PREF.filter(m=>disp.indexOf(m)>=0);
+    if(!modelos.length)
+      modelos=disp.filter(m=>/flash|pro/.test(m)&&!/vision|embedding|tts|image|audio|live/.test(m)).slice(0,3);
+    if(!modelos.length){lastMsg='A chave é válida, mas nenhum modelo de texto está disponível neste projeto.';continue;}
+    geminiCtx={key:apiKey,authMode:mode,modelos:modelos};
+    return geminiCtx;
+  }
+  geminiCtx=null;
+  throw new Error(lastMsg||'Não foi possível validar a chave do Gemini.');
+}
+
 async function chamarGemini(apiKey,entradas){
+  const ctx=await geminiProbe(apiKey);
   const prompt=buildPromptIA(entradas);
-  const GEMINI_MODELS=[
-    'gemini-2.0-flash-001',
-    'gemini-2.0-flash',
-    'gemini-2.0-flash-lite',
-    'gemini-1.5-flash-002',
-    'gemini-1.5-flash-001',
-    'gemini-1.5-flash',
-    'gemini-1.5-pro'
-  ];
-  const body=JSON.stringify({
-    contents:[{parts:[{text:prompt}]}],
-    generationConfig:{temperature:0.1,maxOutputTokens:4000}
-  });
-  // Tenta 3 estratégias de autenticação em ordem para suportar AIza. e AQ.
-  const authStrategies=[
-    (url,h)=>{h['x-goog-api-key']=apiKey;return url;},     // x-goog-api-key header (mais universal)
-    (url,h)=>{return url+'?key='+apiKey;},                  // ?key= na URL (legado)
-    (url,h)=>{h['Authorization']='Bearer '+apiKey;return url;} // Bearer OAuth
-  ];
-  const BASE='https://generativelanguage.googleapis.com/v1beta/models/';
   let lastErr=null;
-  for(const model of GEMINI_MODELS){
-    for(const applyAuth of authStrategies){
-      for(let tentativa=0;tentativa<2;tentativa++){
-        const h={'Content-Type':'application/json'};
-        const url=applyAuth(BASE+model+':generateContent',h);
-        let resp;
-        try{resp=await fetch(url,{method:'POST',headers:h,body});}
-        catch(e){lastErr=new Error('Rede: '+e.message);break;}
-        if(resp.status===404){lastErr=new Error('Modelo indisponível: '+model);break;}
-        if(resp.status===400||resp.status===401||resp.status===403){
-          lastErr=new Error('Auth/modelo ('+resp.status+') — tentando próxima estratégia');break;
-        }
-        if(resp.status===429){
-          const wait=Math.min((parseInt(resp.headers.get('retry-after')||'15')+2),30)*1000;
-          document.getElementById('ai-status').innerHTML='⏳ Rate limit ('+model+'), aguardando '+Math.round(wait/1000)+'s...';
-          await new Promise(r=>setTimeout(r,wait));
-          lastErr=new Error('Rate limit ('+model+')');continue;
-        }
-        if(!resp.ok){let t=await resp.text();lastErr=new Error('HTTP '+resp.status+' ('+model+'): '+t.slice(0,200));break;}
-        const data=await resp.json();
-        const candidate=(data.candidates||[])[0];
-        if(!candidate){lastErr=new Error('Resposta vazia ('+model+')');break;}
-        let txt=(candidate?.content?.parts?.[0]?.text||'').trim();
-        txt=txt.replace(/^```json\s*|\s*```$/g,'').replace(/^```\s*|\s*```$/g,'');
-        let arr;
-        try{arr=JSON.parse(txt);}catch(e){lastErr=new Error('JSON inválido: '+txt.slice(0,100));break;}
-        const out={};
-        arr.forEach(o=>{if(o&&o.email)out[String(o.email).trim().toLowerCase()]={nome:(o.nome||'').trim(),sobrenome:(o.sobrenome||'').trim()};});
-        return out;
+  for(const model of ctx.modelos){
+    const gc={temperature:0.1,maxOutputTokens:8000};
+    if(/gemini-(2\.5|3)/.test(model))gc.thinkingConfig={thinkingBudget:0};
+    const body=JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:gc});
+    for(let tentativa=0;tentativa<2;tentativa++){
+      const h={'Content-Type':'application/json'};
+      const url=geminiAuth(GEMINI_BASE+'models/'+model+':generateContent',h,apiKey,ctx.authMode);
+      let resp;
+      try{resp=await fetch(url,{method:'POST',headers:h,body});}
+      catch(e){lastErr=new Error('Rede: '+e.message);break;}
+      if(resp.status===429){
+        const wait=Math.min((parseInt(resp.headers.get('retry-after')||'15')+2),30)*1000;
+        const st=document.getElementById('ai-status');
+        if(st)st.innerHTML='⏳ Rate limit ('+model+'), aguardando '+Math.round(wait/1000)+'s...';
+        await new Promise(r=>setTimeout(r,wait));
+        lastErr=new Error('Rate limit ('+model+')');continue;
       }
+      if(!resp.ok){lastErr=new Error(explicarErroGemini(resp.status,await resp.text())+' ['+model+']');break;}
+      const data=await resp.json();
+      const candidate=(data.candidates||[])[0];
+      if(!candidate){lastErr=new Error('Resposta vazia ['+model+']');break;}
+      let txt=((((candidate.content||{}).parts||[])[0]||{}).text||'').trim();
+      if(!txt){
+        lastErr=new Error(candidate.finishReason==='MAX_TOKENS'
+          ?'Resposta truncada (lote grande demais) ['+model+']'
+          :'Texto vazio ('+(candidate.finishReason||'sem motivo')+') ['+model+']');
+        break;
+      }
+      txt=txt.replace(/^```json\s*|\s*```$/g,'').replace(/^```\s*|\s*```$/g,'');
+      let arr;
+      try{arr=JSON.parse(txt);}catch(e){lastErr=new Error('JSON inválido: '+txt.slice(0,100));break;}
+      const out={};
+      arr.forEach(o=>{if(o&&o.email)out[String(o.email).trim().toLowerCase()]={nome:(o.nome||'').trim(),sobrenome:(o.sobrenome||'').trim()};});
+      return out;
     }
   }
-  throw lastErr||new Error('Nenhum modelo/autenticação Gemini funcionou. Verifique sua chave em aistudio.google.com/apikey');
+  throw lastErr||new Error('Nenhum modelo Gemini respondeu.');
 }
+
 
 /* ===================== INTERATIVIDADE v8: toasts, histórico, busca, animações ===================== */
 
