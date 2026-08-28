@@ -318,7 +318,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>HubSpot Lead Cleaner v8.9</b> — aplicação standalone · tema Dark Purple · histórico local</div>
+  <div class="footer"><b>HubSpot Lead Cleaner v9.0</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -597,6 +597,24 @@ function extractNameFromEmail(email){
     return[null,null,'ambiguo'];  // não reconheceu → branco, candidato a IA
   }
   return[null,null,'vazio'];
+}
+/* v9.0: variante tolerante para extrair nome quando o e-mail vem do CAMPO NOME
+   (ex: Nome="Cileide.rh@gmail.com"). Tenta a extração normal; se rejeitado por tag
+   institucional (rh, dp, adm...), remove essas tags do prefixo e reextrai; se
+   ainda assim ambíguo, adota o primeiro token com 3+ letras e vogal. */
+function extrairNomeDeEmailTolerante(em){
+  if(!em||!em.includes('@'))return[null,null];
+  let [n,s,st]=extractNameFromEmail(em);
+  if(n)return[n,s];
+  let prefix=em.split('@')[0];
+  let tokens=prefix.split(/[._\-]+/).map(t=>t.replace(/^\d+|\d+$/g,'')).filter(Boolean);
+  let sobra=tokens.filter(t=>!TAGS_PURAS.has(norm(t))&&!GENERIC_PREFIXES.has(norm(t)));
+  if(!sobra.length)return[null,null];
+  let [n2,s2]=extractNameFromEmail(sobra.join('.')+'@x.com');
+  if(n2)return[n2,s2];
+  let cand=sobra.filter(t=>/^[a-zA-ZÀ-ÿ]{3,}$/.test(t)&&/[aeiouáàâãéêíóôõúü]/i.test(t));
+  if(cand.length)return[titleCasePT(cand[0]),cand.length>1?titleCasePT(cand.slice(1).join(' ')):null];
+  return[null,null];
 }
 
 function validarCPF(cpf){
@@ -1335,12 +1353,38 @@ function runPipeline(){
         return false; // Confiante no resultado local
       }
       if(nomeFonte){
+        // v9.0: se o valor do campo Nome contém um e-mail (padrão x@y.z),
+        // NUNCA deixamos passar como está. Tentamos, nesta ordem:
+        // 1) remover o e-mail e usar o texto que sobrou (caso raro "Nome + email");
+        // 2) extrair nome do próprio e-mail encontrado (tolerando tags rh/dp/adm);
+        // 3) fallback: extrair do e-mail principal do contato, se diferente;
+        // 4) senão, zera Nome e Sobrenome — o e-mail sai da coluna Nome.
+        const emailNoNome=String(nomeFonte).match(/[^\s@]+@[^\s@]+\.[^\s@]+/);
+        if(emailNoNome){
+          let usou=false;
+          const semEmail=String(nomeFonte).replace(emailNoNome[0],' ').replace(/\s+/g,' ').trim();
+          if(semEmail){
+            let[n,s]=splitNome(semEmail);
+            if(n){row['Nome']=n;row['Sobrenome']=s||'';if(s){nomesSeparados++;idxSeparados.push(idx);}else{enriched++;idxDoEmail.push(idx);}
+              if(nomeSuspeito(n,s,row['Email']))aiCandidates.push({idx,email:row['Email'],nomeAtual:n,sobrenomeAtual:s||''});
+              usou=true;}
+          }
+          if(!usou){
+            let[n,s]=extrairNomeDeEmailTolerante(emailNoNome[0]);
+            if(!n&&row['Email']&&row['Email']!==emailNoNome[0]){[n,s]=extrairNomeDeEmailTolerante(row['Email']);}
+            if(n){row['Nome']=n;row['Sobrenome']=s||'';enriched++;idxDoEmail.push(idx);
+              if(nomeSuspeito(n,s,row['Email']))aiCandidates.push({idx,email:row['Email'],nomeAtual:n,sobrenomeAtual:s||''});}
+            else{row['Nome']='';row['Sobrenome']='';nomesZerados++;idxZerados.push(idx);
+              aiCandidates.push({idx,email:row['Email'],nomeAtual:'',sobrenomeAtual:''});}
+          }
+        }else{
         let[n,s]=splitNome(nomeFonte);
         if(n){
           row['Nome']=n;row['Sobrenome']=s||'';if(s){nomesSeparados++;idxSeparados.push(idx);}
           if(nomeSuspeito(n,s,row['Email']))aiCandidates.push({idx,email:row['Email'],nomeAtual:n,sobrenomeAtual:s||''});
         }
         else{row['Nome']='';row['Sobrenome']='';nomesZerados++;idxZerados.push(idx);}
+        }
       }else{
         let[n,s,status]=extractNameFromEmail(row['Email']);
         if(n){
