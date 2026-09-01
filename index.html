@@ -318,7 +318,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>HubSpot Lead Cleaner v9.2</b> — aplicação standalone · tema Dark Purple · histórico local</div>
+  <div class="footer"><b>HubSpot Lead Cleaner v9.3</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -777,7 +777,7 @@ function mapCargoRH(role,areaText){
   const RECHUM=t=>HUMANOS.test(t)&&!/direitos human/.test(t);
   // DP: substantivo "departamento" + pessoal (depto/dpto/depart/dept/dep), ou "dp"/folha,
   // OU domínios de DP: Remuneração, Benefícios, Folha, Fopag, Payroll, Compensation.
-  const REM_BEN_FOLHA=/\b(remunera\w*|benef\w*|benefits|payroll|fopag|folha|compensa\w*)\b/;
+  const REM_BEN_FOLHA=/\b(remunera\w*|benef\w*|benefits|payroll|fopag|folha|compensa\w*|ocupaciona\w*)\b/;
   const DP_IND=t=>/\bdp\b|folha de pag(amento|to)|\b(depar\w*|dept\w*|dpto|dpt|dep)\.? ?pess\w*\b/.test(t)||REM_BEN_FOLHA.test(t);
   // "Pessoa(l)/Pessoas" (com typos: pessos, pesssoas, pesssol, pessal) que NÃO seja "departamento pessoal" → RH.
   // Exclui usos NÃO-RH de "pessoa": marca(s) pessoal/pessoais (branding), pessoa física/jurídica (vendas/PJ), dados pessoais.
