@@ -762,23 +762,29 @@ function mapCargoRH(role,areaText){
   if(/\b(professor|professora|docente)\b/.test(ctx))return 'Professor';
   if(/\b(estudante|universitari[oa]|graduand[oa]|academic[oa])\b/.test(ctx))return 'Estudante';
   if(/recoloca/.test(ctx))return 'Buscando recolocação';
-  if(/business partner|hrbp|bp de rh/.test(ctx))return 'Business Partner de RH';
+  if(/bu[s]{1,2}in?e?s{1,2}\s*partner|hrbp|rhbp|hr\s+bp|hr\s+partner|bp de rh/.test(ctx))return 'Business Partner de RH';
 
   // --- Indicadores de que o cargo/área É de RH ou DP ---
   // RH: RH, Recursos Humanos, R&S, T&D, Clima e Cultura e ADMINISTRAÇÃO/rotinas de PESSOAL (sem "departamento")
-  const RH_IND=/\b(rh|recursos human[oa]s?|gente|pessoas|gestao de pessoas|talento|talentos|people|dho|desenvolvimento humano|capital humano|recrutamento|selecao|r ?& ?s|talent acquisition|aquisicao de talentos|cargos e salarios|clima e cultura|clima organizacional|cultura organizacional)\b/;
+  const RH_IND=/\b(hr\w*|rh[oaj]?|recursos human[oa]s?|gente|pessoas|gestao de pessoas|talento|talentos|people|dho|desenvolvimento humano|capital humano|recrutamento|selecao|r ?& ?s|talent acquisition|aquisicao de talentos|cargos e salarios|clima e cultura|clima organizacional|cultura organizacional)\b/;
   const TD_IND=/\btreina|\bt ?& ?d\b/;   // Treinamento & Desenvolvimento → RH
   // Recrutamento & Seleção em qualquer forma (PT/EN, com typos) → RH
   const REC_IND=/recruit|\brecrut/;   // recruiter, recruitment, recrutador(a), recrutamento, recrutradora
-  // "Recursos Humanos" tolerante a typos: stem recurs/recus/recur (ou "rec hum") + fragmento de "humanos".
-  // NÃO casa: recuperação, recepção, recompensa, recrutamento, nem "recursos" sozinho (ex: captação de recursos).
-  const RECHUM=t=>/\brec(?:ur\w*|us\w*|\.? ?hum\w*)/.test(t)&&/(hum|man|amn|gum)/.test(t);
-  // DP: exige SUBSTANTIVO de "departamento" + pessoal (depto/dpto/depart/dept/dep), ou "dp"/folha
-  const DP_IND=/\bdp\b|folha de pag(amento|to)|\b(depar\w*|dept\w*|dpto|dpt|dep)\.? ?pessoal\b/;
-  // Qualquer "Pessoal" que NÃO seja "departamento pessoal" (ex: Adm de Pessoal, de Pessoal) → RH
-  const PESSOAL_RH_IND=/\bpessoal\b/;
-  const domRH=t=>RH_IND.test(t)||TD_IND.test(t)||REC_IND.test(t)||RECHUM(t)||(!DP_IND.test(t)&&PESSOAL_RH_IND.test(t));
-  const roleDP=DP_IND.test(r),areaDP=DP_IND.test(a);
+  // "...Humanos" em cargo é quase sempre RH (Recursos/Desenvolvimento/Capital Humano), mesmo com o
+  // radical "recursos" destruído (ecursos, regursos, rrcursos, rercursos, "R Humanos"). Detecta o
+  // FRAGMENTO de "humano(s)" tolerante a typos (gumanos, huamnos, hmanos, humamos...). Exceto "direitos humanos".
+  const HUMANOS=/hum[ao]|\bhum\b|[ug]man|huamn|hman/;
+  const RECHUM=t=>HUMANOS.test(t)&&!/direitos human/.test(t);
+  // DP: substantivo "departamento" + pessoal (depto/dpto/depart/dept/dep), ou "dp"/folha,
+  // OU domínios de DP: Remuneração, Benefícios, Folha, Fopag, Payroll, Compensation.
+  const REM_BEN_FOLHA=/\b(remunera\w*|benef\w*|benefits|payroll|fopag|folha|compensa\w*)\b/;
+  const DP_IND=t=>/\bdp\b|folha de pag(amento|to)|\b(depar\w*|dept\w*|dpto|dpt|dep)\.? ?pess\w*\b/.test(t)||REM_BEN_FOLHA.test(t);
+  // "Pessoa(l)/Pessoas" (com typos: pessos, pesssoas, pesssol, pessal) que NÃO seja "departamento pessoal" → RH.
+  // Exclui usos NÃO-RH de "pessoa": marca(s) pessoal/pessoais (branding), pessoa física/jurídica (vendas/PJ), dados pessoais.
+  const PESSOA_IND=/\bpess\w*/;
+  const PESSOA_NAORH=/marcas? pessoa|pessoa[s]? (juridic|fisic)|dados pessoa/;
+  const domRH=t=>RH_IND.test(t)||TD_IND.test(t)||REC_IND.test(t)||RECHUM(t)||(!DP_IND(t)&&PESSOA_IND.test(t)&&!PESSOA_NAORH.test(t));
+  const roleDP=DP_IND(r),areaDP=DP_IND(a);
   const roleRH=!roleDP&&domRH(r),areaRH=!areaDP&&domRH(a);
 
   // cargo "genérico": só nível hierárquico + conectores, sem domínio próprio (ex: "Diretora", "Analista")
@@ -795,15 +801,17 @@ function mapCargoRH(role,areaText){
 
   if(isRH||isDP){
     const dp=isDP&&!isRH;   // prioriza RH quando ambíguo
-    if(/\b(diretor|diretora|head|vp|cho|chro)\b/.test(r))return dp?'Diretor de DP':'Diretor de RH';
+    if(/\b(diretor|diretora|head|vp|cho|chro|director)\b/.test(r))return dp?'Diretor de DP':'Diretor de RH';
     if(/\bsuperintendente\b/.test(r))return 'Coordenador de RH';
+    // "Assistant Manager" = adjunto do gerente => tratar como Coordenador, não Gerente nem Assistente
+    if(/\bassistant\s+manager\b|\bassistant\s+manger\b/.test(r))return dp?'Coordenador de DP':'Coordenador de RH';
     if(/\b(gerente|ger|gestor|gestora|manager)\b/.test(r))return dp?'Gerente de DP':'Gerente de RH';
-    if(/\b(coordenador|coordenadora|coord|coordinator|encarregad[oa]|lider|lead|chefe)\b/.test(r))return dp?'Coordenador de DP':'Coordenador de RH';
+    if(/\b(coordenador|coordenadora|coord|coordinator|encarregad[oa]|lider|lead|leader|chefe)\b/.test(r))return dp?'Coordenador de DP':'Coordenador de RH';
     if(/\b(supervisor|supervisora|sup)\b/.test(r))return 'Supervisor de RH';
-    if(/\b(consultor|consultora)\b/.test(r))return dp?'Consultor de DP':'Consultor de RH';
-    if(/\bestagi/.test(r)||/\b(trainee|aprendiz)\b/.test(r))return dp?'Estagiário de DP':'Estagiário de RH';
-    if(/\bassis/.test(r)||/\b(ass|auxiliar|aux)\b/.test(r))return 'Assistente de RH';
-    if(/\b(analista|especialista)\b/.test(r))return dp?'Analista DP':'Analista de RH';
+    if(/\b(consultor|consultora|consultant)\b/.test(r))return dp?'Consultor de DP':'Consultor de RH';
+    if(/\bestagi/.test(r)||/\b(trainee|aprendiz|intern)\b/.test(r))return dp?'Estagiário de DP':'Estagiário de RH';
+    if(/\bassis/.test(r)||/\b(ass|auxiliar|aux|assistant)\b/.test(r))return 'Assistente de RH';
+    if(/\b(analista|especialista|analyst|analist|specialist)\b/.test(r))return dp?'Analista DP':'Analista de RH';
     // É de RH/DP mas sem nível explícito (ex: "RH", "T&D", "Treinamento", "Depto Pessoal")
     return dp?'Analista DP':'Analista de RH';
   }
