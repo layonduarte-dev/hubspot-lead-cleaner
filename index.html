@@ -318,7 +318,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>HubSpot Lead Cleaner v9.1</b> — aplicação standalone · tema Dark Purple · histórico local</div>
+  <div class="footer"><b>HubSpot Lead Cleaner v9.2</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -768,11 +768,16 @@ function mapCargoRH(role,areaText){
   // RH: RH, Recursos Humanos, R&S, T&D, Clima e Cultura e ADMINISTRAÇÃO/rotinas de PESSOAL (sem "departamento")
   const RH_IND=/\b(rh|recursos human[oa]s?|gente|pessoas|gestao de pessoas|talento|talentos|people|dho|desenvolvimento humano|capital humano|recrutamento|selecao|r ?& ?s|talent acquisition|aquisicao de talentos|cargos e salarios|clima e cultura|clima organizacional|cultura organizacional)\b/;
   const TD_IND=/\btreina|\bt ?& ?d\b/;   // Treinamento & Desenvolvimento → RH
+  // Recrutamento & Seleção em qualquer forma (PT/EN, com typos) → RH
+  const REC_IND=/recruit|\brecrut/;   // recruiter, recruitment, recrutador(a), recrutamento, recrutradora
+  // "Recursos Humanos" tolerante a typos: stem recurs/recus/recur (ou "rec hum") + fragmento de "humanos".
+  // NÃO casa: recuperação, recepção, recompensa, recrutamento, nem "recursos" sozinho (ex: captação de recursos).
+  const RECHUM=t=>/\brec(?:ur\w*|us\w*|\.? ?hum\w*)/.test(t)&&/(hum|man|amn|gum)/.test(t);
   // DP: exige SUBSTANTIVO de "departamento" + pessoal (depto/dpto/depart/dept/dep), ou "dp"/folha
   const DP_IND=/\bdp\b|folha de pag(amento|to)|\b(depar\w*|dept\w*|dpto|dpt|dep)\.? ?pessoal\b/;
   // Qualquer "Pessoal" que NÃO seja "departamento pessoal" (ex: Adm de Pessoal, de Pessoal) → RH
   const PESSOAL_RH_IND=/\bpessoal\b/;
-  const domRH=t=>RH_IND.test(t)||TD_IND.test(t)||(!DP_IND.test(t)&&PESSOAL_RH_IND.test(t));
+  const domRH=t=>RH_IND.test(t)||TD_IND.test(t)||REC_IND.test(t)||RECHUM(t)||(!DP_IND.test(t)&&PESSOAL_RH_IND.test(t));
   const roleDP=DP_IND.test(r),areaDP=DP_IND.test(a);
   const roleRH=!roleDP&&domRH(r),areaRH=!areaDP&&domRH(a);
 
@@ -793,11 +798,11 @@ function mapCargoRH(role,areaText){
     if(/\b(diretor|diretora|head|vp|cho|chro)\b/.test(r))return dp?'Diretor de DP':'Diretor de RH';
     if(/\bsuperintendente\b/.test(r))return 'Coordenador de RH';
     if(/\b(gerente|ger|gestor|gestora|manager)\b/.test(r))return dp?'Gerente de DP':'Gerente de RH';
-    if(/\b(coordenador|coordenadora|coord|encarregad[oa]|lider|chefe)\b/.test(r))return dp?'Coordenador de DP':'Coordenador de RH';
+    if(/\b(coordenador|coordenadora|coord|coordinator|encarregad[oa]|lider|lead|chefe)\b/.test(r))return dp?'Coordenador de DP':'Coordenador de RH';
     if(/\b(supervisor|supervisora|sup)\b/.test(r))return 'Supervisor de RH';
     if(/\b(consultor|consultora)\b/.test(r))return dp?'Consultor de DP':'Consultor de RH';
     if(/\bestagi/.test(r)||/\b(trainee|aprendiz)\b/.test(r))return dp?'Estagiário de DP':'Estagiário de RH';
-    if(/\bassis/.test(r)||/\b(auxiliar|aux)\b/.test(r))return 'Assistente de RH';
+    if(/\bassis/.test(r)||/\b(ass|auxiliar|aux)\b/.test(r))return 'Assistente de RH';
     if(/\b(analista|especialista)\b/.test(r))return dp?'Analista DP':'Analista de RH';
     // É de RH/DP mas sem nível explícito (ex: "RH", "T&D", "Treinamento", "Depto Pessoal")
     return dp?'Analista DP':'Analista de RH';
