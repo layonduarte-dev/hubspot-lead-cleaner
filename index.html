@@ -318,7 +318,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>HubSpot Lead Cleaner v9.0</b> — aplicação standalone · tema Dark Purple · histórico local</div>
+  <div class="footer"><b>HubSpot Lead Cleaner v9.1</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -722,9 +722,38 @@ function limparMensalidade(v){
   return num.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 
+/* De/Para explícito informado pelo usuário — tem prioridade sobre a heurística.
+   Chaves em normCargo(): minúsculas, sem acento, pontuação vira espaço, & preservado. */
+function normCargo(s){return norm(s).replace(/[^a-z0-9&]+/g,' ').replace(/\s+/g,' ').trim();}
+const CARGO_DEPARA={
+  'analista de treinamento e desenvolvimento':'Analista de RH',
+  'analista t&d':'Analista de RH',
+  'assistente treinamento e desenvolvimento':'Assistente de RH',
+  'assistente t&d':'Assistente de RH',
+  'gerente de dpto pessoal':'Gerente de DP',
+  'coordenador de pessoal':'Coordenador de RH',
+  'analista de pessoal':'Analista de RH',
+  'analista de adm de pessoal pl':'Analista de RH',
+  'analista adm de pessoal':'Analista de RH',
+  'analista depart pessoal':'Analista DP',
+  'gerente sr de recursos humano':'Gerente de RH',
+  'assistente de pessoal':'Assistente de RH',
+  'analista de administracao de pessoal':'Analista de RH',
+  'gerente t&d':'Gerente de RH',
+  'analista de r&s':'Analista de RH',
+  'assistente de resursos humanos':'Assistente de RH',
+  'gerente de clima e cultura':'Gerente de RH',
+  'encarregada de dpto pessoal':'Coordenador de DP',
+  'especialista de treinamento e desenvolvimento':'Analista de RH',
+  'coord depto pessoal':'Coordenador de DP',
+};
 function mapCargoRH(role,areaText){
   const r=norm(role),a=norm(areaText||''),ctx=(r+' '+a).trim();
   if(!ctx)return 'Outros';
+
+  // De/Para explícito (casa o cargo inteiro, inclusive typos como "resursos")
+  const deParaFixo=CARGO_DEPARA[normCargo(role)];
+  if(deParaFixo)return deParaFixo;
 
   // --- Cargos diretos (independem de contexto de RH) ---
   if(/\b(socio|socia|proprietari[oa]|co-?founder|founder|ceo|fundador[a]?|presidente|dono|dona|empresari[oa]|c-level)\b/.test(ctx))return 'Sócio/CEO';
@@ -736,15 +765,21 @@ function mapCargoRH(role,areaText){
   if(/business partner|hrbp|bp de rh/.test(ctx))return 'Business Partner de RH';
 
   // --- Indicadores de que o cargo/área É de RH ou DP ---
-  const RH_IND=/\b(rh|recursos humanos|gente|pessoas|gestao de pessoas|talento|talentos|people|dho|desenvolvimento humano|capital humano|recrutamento|selecao|talent acquisition|aquisicao de talentos|cargos e salarios)\b/;
-  const DP_IND=/\b(dp|departamento pessoal|folha de pagamento|folha de pagto)\b/;
-  const roleRH=RH_IND.test(r),roleDP=DP_IND.test(r);
-  const areaRH=RH_IND.test(a),areaDP=DP_IND.test(a);
+  // RH: RH, Recursos Humanos, R&S, T&D, Clima e Cultura e ADMINISTRAÇÃO/rotinas de PESSOAL (sem "departamento")
+  const RH_IND=/\b(rh|recursos human[oa]s?|gente|pessoas|gestao de pessoas|talento|talentos|people|dho|desenvolvimento humano|capital humano|recrutamento|selecao|r ?& ?s|talent acquisition|aquisicao de talentos|cargos e salarios|clima e cultura|clima organizacional|cultura organizacional)\b/;
+  const TD_IND=/\btreina|\bt ?& ?d\b/;   // Treinamento & Desenvolvimento → RH
+  // DP: exige SUBSTANTIVO de "departamento" + pessoal (depto/dpto/depart/dept/dep), ou "dp"/folha
+  const DP_IND=/\bdp\b|folha de pag(amento|to)|\b(depar\w*|dept\w*|dpto|dpt|dep)\.? ?pessoal\b/;
+  // Qualquer "Pessoal" que NÃO seja "departamento pessoal" (ex: Adm de Pessoal, de Pessoal) → RH
+  const PESSOAL_RH_IND=/\bpessoal\b/;
+  const domRH=t=>RH_IND.test(t)||TD_IND.test(t)||(!DP_IND.test(t)&&PESSOAL_RH_IND.test(t));
+  const roleDP=DP_IND.test(r),areaDP=DP_IND.test(a);
+  const roleRH=!roleDP&&domRH(r),areaRH=!areaDP&&domRH(a);
 
   // cargo "genérico": só nível hierárquico + conectores, sem domínio próprio (ex: "Diretora", "Analista")
   const roleResto=r
-    .replace(/\b(analista|especialista|assistente|auxiliar|coordenador|coordenadora|coord|gerente|manager|diretor|diretora|head|vp|cho|chro|supervisor|supervisora|consultor|consultora|estagiario|estagiaria|estagio|trainee|aprendiz|superintendente|lider|encarregado|chefe|tecnico|tecnica)\b/g,' ')
-    .replace(/\b(rh|recursos|humanos|gente|pessoas|dp|departamento|pessoal|de|da|do|das|dos|e|em|na|no)\b/g,' ')
+    .replace(/\b(analista|especialista|assistente|auxiliar|coordenador|coordenadora|coord|gerente|gestor|gestora|manager|diretor|diretora|head|vp|cho|chro|supervisor|supervisora|consultor|consultora|estagiario|estagiaria|estagio|trainee|aprendiz|superintendente|lider|encarregad[oa]|chefe|tecnico|tecnica)\b/g,' ')
+    .replace(/\b(rh|recursos|humanos|gente|pessoas|dp|departamento|pessoal|treinamento|desenvolvimento|de|da|do|das|dos|e|em|na|no)\b/g,' ')
     .replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim();
   const roleBare=roleResto==='';
 
@@ -757,14 +792,14 @@ function mapCargoRH(role,areaText){
     const dp=isDP&&!isRH;   // prioriza RH quando ambíguo
     if(/\b(diretor|diretora|head|vp|cho|chro)\b/.test(r))return dp?'Diretor de DP':'Diretor de RH';
     if(/\bsuperintendente\b/.test(r))return 'Coordenador de RH';
-    if(/\b(gerente|manager)\b/.test(r))return dp?'Gerente de DP':'Gerente de RH';
-    if(/\b(coordenador|coordenadora|coord)\b/.test(r))return dp?'Coordenador de DP':'Coordenador de RH';
-    if(/\b(supervisor|supervisora)\b/.test(r))return 'Supervisor de RH';
+    if(/\b(gerente|ger|gestor|gestora|manager)\b/.test(r))return dp?'Gerente de DP':'Gerente de RH';
+    if(/\b(coordenador|coordenadora|coord|encarregad[oa]|lider|chefe)\b/.test(r))return dp?'Coordenador de DP':'Coordenador de RH';
+    if(/\b(supervisor|supervisora|sup)\b/.test(r))return 'Supervisor de RH';
     if(/\b(consultor|consultora)\b/.test(r))return dp?'Consultor de DP':'Consultor de RH';
     if(/\bestagi/.test(r)||/\b(trainee|aprendiz)\b/.test(r))return dp?'Estagiário de DP':'Estagiário de RH';
-    if(/\b(assistente|auxiliar)\b/.test(r))return 'Assistente de RH';
+    if(/\bassis/.test(r)||/\b(auxiliar|aux)\b/.test(r))return 'Assistente de RH';
     if(/\b(analista|especialista)\b/.test(r))return dp?'Analista DP':'Analista de RH';
-    // É de RH/DP mas sem nível explícito (ex: "Talent Acquisition", "RH", "Recrutamento e Seleção")
+    // É de RH/DP mas sem nível explícito (ex: "RH", "T&D", "Treinamento", "Depto Pessoal")
     return dp?'Analista DP':'Analista de RH';
   }
 
