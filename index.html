@@ -318,7 +318,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>HubSpot Lead Cleaner v9.3</b> — aplicação standalone · tema Dark Purple · histórico local</div>
+  <div class="footer"><b>HubSpot Lead Cleaner v9.4</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -746,7 +746,16 @@ const CARGO_DEPARA={
   'encarregada de dpto pessoal':'Coordenador de DP',
   'especialista de treinamento e desenvolvimento':'Analista de RH',
   'coord depto pessoal':'Coordenador de DP',
+  // v9.4: Coordenação Administrativa e RH (e variantes) → Coordenador de RH
+  'coordenacao administrativa e rh':'Coordenador de RH',
+  'coordenacao administrativa e de rh':'Coordenador de RH',
+  'coordenacao administrativa rh':'Coordenador de RH',
+  'coordenacao administrativa & rh':'Coordenador de RH',
+  'coordenacao adm e rh':'Coordenador de RH',
+  'coordenacao adm rh':'Coordenador de RH',
 };
+/* v9.4: de/para que se aplica também quando o valor já vem na coluna Cargo RH */
+const CARGO_RH_FORCADO=new Set(['coordenacao administrativa e rh','coordenacao administrativa e de rh','coordenacao administrativa rh','coordenacao administrativa & rh','coordenacao adm e rh','coordenacao adm rh']);
 function mapCargoRH(role,areaText){
   const r=norm(role),a=norm(areaText||''),ctx=(r+' '+a).trim();
   if(!ctx)return 'Outros';
@@ -1208,7 +1217,7 @@ function runPipeline(){
         // Cargo RH: o valor que já veio na planilha PREVALECE sobre tudo.
         // Só quando não existe Cargo RH é que criamos o de/para a partir do Cargo.
         if(temCargoRHOriginal){
-          mapped['Cargo RH']=cargoRHOriginal;
+          mapped['Cargo RH']=CARGO_RH_FORCADO.has(normCargo(cargoRHOriginal))?CARGO_DEPARA[normCargo(cargoRHOriginal)]:cargoRHOriginal;
         } else if(roleKey){
           mapped['Cargo RH']=mapCargoRH(roleEfetivo,areas.join(' '));
         } else {
