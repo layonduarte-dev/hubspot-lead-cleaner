@@ -56,8 +56,8 @@
   .drop-zone p{font-size:15px;color:var(--text-2)}
   .drop-zone small{font-size:12px;color:var(--text-3)}
   /* ---------- inputs ---------- */
-  input[type=text],textarea,select{width:100%;padding:10px 13px;font-size:14px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:var(--radius-s);color:var(--text);font-family:inherit;transition:border-color .15s,box-shadow .15s}
-  input[type=text]:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  input[type=text],input[type=number],textarea,select{width:100%;padding:10px 13px;font-size:14px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:var(--radius-s);color:var(--text);font-family:inherit;transition:border-color .15s,box-shadow .15s}
+  input[type=text]:focus,input[type=number]:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   input::placeholder,textarea::placeholder{color:var(--text-3)}
   textarea{min-height:80px;resize:vertical;margin-top:.6rem}
   select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23A79DCB' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
@@ -130,6 +130,11 @@
   .corr{font-size:13px;color:var(--text-2);margin-bottom:.8rem}
   .corr code{background:var(--surface-2);border:1px solid var(--border);padding:2px 7px;border-radius:6px;font-size:12px;color:#c4b5fd}
   .hidden{display:none}
+  /* v9.5: dividir resultado em N arquivos */
+  .split-box{display:flex;flex-direction:column;gap:.7rem;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:.9rem 1rem;margin-bottom:.8rem}
+  .split-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--text-2)}
+  .split-row input{width:90px;height:38px}
+  .split-files{display:flex;gap:8px;flex-wrap:wrap}
   /* ---------- colmap ---------- */
   .colmap-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)}
   .colmap-row:last-child{border-bottom:none}
@@ -284,7 +289,18 @@
             <button class="btn-dl" onclick="downloadCSV('dados')">⬇️ Baixar CSV limpo</button>
             <button class="btn-dl" onclick="downloadAll()">📦 Baixar tudo</button>
             <button class="btn-dl" onclick="abrirGoogleSheets()">📊 Abrir no Google Sheets</button>
+            <button class="btn-dl" onclick="toggleSplit()">✂️ Dividir em arquivos</button>
           </div>
+        </div>
+        <div class="split-box hidden" id="split-box">
+          <div class="split-row">
+            <span>Dividir o resultado final em</span>
+            <input type="number" id="split-n" min="2" value="2" onkeydown="if(event.key==='Enter')gerarDivisao()">
+            <span>arquivos</span>
+            <button class="btn-dl" onclick="gerarDivisao()">Gerar</button>
+            <span id="split-info"></span>
+          </div>
+          <div class="split-files" id="split-files"></div>
         </div>
         <div class="table-wrap" id="table-dados"></div>
       </div>
@@ -318,7 +334,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>HubSpot Lead Cleaner v9.4</b> — aplicação standalone · tema Dark Purple · histórico local</div>
+  <div class="footer"><b>HubSpot Lead Cleaner v9.5</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -1466,7 +1482,7 @@ function runPipeline(){
     let telefonesInvalidos=idxTelefoneInvalido.length;
     let docsInvalidos=idxDocInvalido.length;
 
-    dfDados=dados;dfInvalidos=invalidos;
+    dfDados=dados;dfInvalidos=invalidos;resetSplit();
 
     // Popula dados para os cards de estatística clicáveis
     statDetailData={
@@ -1592,6 +1608,51 @@ function downloadAll(){
   let a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='hubspot_completo_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
   toast('📦 Planilha completa baixada','ok');
+}
+/* v9.5: divide dfDados em N arquivos do mesmo tamanho (diferença máx. de 1 linha).
+   Nome: hubspot_dados_limpo_AAAA-MM-DD_arquivo 1 de N.csv */
+let splitN=0;
+function splitRanges(total,n){
+  const base=Math.floor(total/n),resto=total%n,out=[];let ini=0;
+  for(let i=0;i<n;i++){const tam=base+(i<resto?1:0);out.push([ini,ini+tam]);ini+=tam;}
+  return out;
+}
+function toggleSplit(){
+  const box=document.getElementById('split-box');box.classList.toggle('hidden');
+  if(!box.classList.contains('hidden'))document.getElementById('split-n').focus();
+}
+function resetSplit(){
+  splitN=0;
+  const f=document.getElementById('split-files'),i=document.getElementById('split-info');
+  if(f)f.innerHTML='';if(i)i.textContent='';
+}
+function gerarDivisao(){
+  if(!dfDados.length){toast('Nenhum dado limpo para dividir','warn');return;}
+  const n=parseInt(document.getElementById('split-n').value,10);
+  if(!n||n<2){toast('Informe 2 ou mais arquivos','warn');return;}
+  if(n>dfDados.length){toast('Mais arquivos do que registros ('+dfDados.length+')','warn');return;}
+  splitN=n;
+  const ranges=splitRanges(dfDados.length,n);
+  document.getElementById('split-info').textContent=dfDados.length.toLocaleString('pt-BR')+' registros → '+n+' arquivos';
+  let html=ranges.map((r,i)=>'<button class="btn-dl" onclick="downloadParte('+i+')">⬇️ Arquivo '+(i+1)+' de '+n+' <span style="color:var(--text-3)">('+(r[1]-r[0]).toLocaleString('pt-BR')+')</span></button>').join('');
+  html+='<button class="btn-dl" onclick="downloadTodasPartes()">📦 Baixar os '+n+'</button>';
+  document.getElementById('split-files').innerHTML=html;
+}
+function downloadParte(i,silencioso){
+  if(!splitN||!dfDados.length)return;
+  const [ini,fim]=splitRanges(dfDados.length,splitN)[i];
+  const data=dfDados.slice(ini,fim);if(!data.length)return;
+  const cols=Object.keys(dfDados[0]);
+  const csv=cols.map(esc2).join(',')+'\n'+data.map(r=>cols.map(c=>esc2(String(r[c]??''))).join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='hubspot_dados_limpo_'+new Date().toISOString().slice(0,10)+'_arquivo '+(i+1)+' de '+splitN+'.csv';a.click();
+  if(!silencioso)toast('⬇️ Arquivo '+(i+1)+' de '+splitN+' baixado ('+data.length+' registros)','ok');
+}
+function downloadTodasPartes(){
+  if(!splitN)return;
+  for(let i=0;i<splitN;i++)setTimeout(()=>downloadParte(i,true),i*400);
+  setTimeout(()=>toast('📦 '+splitN+' arquivos baixados','ok'),splitN*400);
 }
 function abrirGoogleSheets(){
   if(!dfDados.length)return;
