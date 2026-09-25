@@ -334,7 +334,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>HubSpot Lead Cleaner v9.6</b> — aplicação standalone · tema Dark Purple · histórico local</div>
+  <div class="footer"><b>HubSpot Lead Cleaner v9.7</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -678,36 +678,44 @@ function limparDoc(v){
   return ''; // tamanho errado (não é CPF nem CNPJ) → zera
 }
 function ehColunaDoc(h){let n=norm(h);return n.includes('cpf')||n.includes('cnpj')||n.includes('documento')||n.includes('inscricao')||n==='doc';}
+/* v9.7: telefone corrigido para E.164 (+55DDDNUMERO). Só altera quando a correção é segura;
+   qualquer caso não corrigível (serviço, placeholder, DDD inválido, tamanho errado) mantém o valor original. */
+const TEL_SERVICO_INICIO=['0300','0500','0800','0900'];
+const TEL_SERVICO_ASSIN=['3003','4003','4004','4020','4002'];
 function limparTelefone(v){
   if(v===null||v===undefined)return '';
   let original=String(v).trim();
   if(['','nan','none','null','na'].includes(original.toLowerCase()))return '';
-  let digitos=original.replace(/\D/g,'');
-  if(!digitos)return '';
-  // Remove código do país (55) se presente e sobrar tamanho nacional válido
-  if((digitos.length===12||digitos.length===13)&&digitos.startsWith('55')){
-    digitos=digitos.slice(2);
+  // 1. Só dígitos
+  let d=original.replace(/\D/g,'');
+  if(!d)return v;
+  // 2. Internacional explícito (+DDI ≠ 55): mantém +dígitos
+  if(original.startsWith('+')&&!d.startsWith('55'))return '+'+d;
+  // 9. Serviço (0300/0500/0800/0900/3003/4003/4004/4020/4002) e placeholders → não mexe
+  if(TEL_SERVICO_INICIO.some(p=>d.startsWith(p))||TEL_SERVICO_ASSIN.some(p=>d.startsWith(p)))return v;
+  if(/^(\d)\1+$/.test(d)||d.startsWith('123456'))return v;
+  // 3. Zero(s) de trunk/operadora: remove só se sobrarem exatamente 10 ou 11 dígitos
+  if(d.startsWith('0')){
+    const semZero=d.replace(/^0+/,'');
+    if(semZero.length===10||semZero.length===11)d=semZero;
   }
-  // Remove zero inicial de discagem (0DDD antigo)
-  if(digitos.length===11&&digitos.startsWith('0'))digitos=digitos.slice(1);
-  // Tamanho precisa ser 10 (fixo: DDD+8) ou 11 (celular: DDD+9)
-  if(digitos.length!==10&&digitos.length!==11)return '';
-  const ddd=digitos.slice(0,2);
-  if(!DDD_VALIDOS.has(ddd))return '';
-  const numero=digitos.slice(2);
-  // Rejeita todos os dígitos iguais (11111111111, 00000000000)
-  if(/^(\d)\1+$/.test(digitos))return '';
-  // Rejeita sequência simples (ex: 1234567890, 0123456789)
-  const seqCrescente='0123456789'.includes(digitos)||'01234567890'.includes(digitos);
-  const seqDecrescente='9876543210'.includes(digitos)||'98765432109'.includes(digitos);
-  if(seqCrescente||seqDecrescente)return '';
-  // Rejeita se o "número" (sem DDD) tem todos os dígitos iguais (ex: DDD + 99999999)
-  if(/^(\d)\1+$/.test(numero))return '';
-  // Formata de forma limpa e SEGURA: nunca retorna com +, =, -, @ no início
-  // (esses caracteres fazem Google Sheets/Excel interpretar a célula como fórmula e gerar #ERROR!)
-  return numero.length===9
-    ? '('+ddd+') '+numero.slice(0,5)+'-'+numero.slice(5)
-    : '('+ddd+') '+numero.slice(0,4)+'-'+numero.slice(4);
+  // 4. DDI 55 só é descascado com 12 ou 13 dígitos (11 dígitos começando com 55 = DDD 55)
+  if((d.length===12||d.length===13)&&d.startsWith('55'))d=d.slice(2);
+  if(d.length!==10&&d.length!==11)return v;
+  // 5. DDD oficial Anatel
+  const ddd=d.slice(0,2);
+  if(!DDD_VALIDOS.has(ddd))return v;
+  const assin=d.slice(2);
+  // 9. Placeholders / serviço no assinante
+  if(/^(\d)\1+$/.test(assin)||d.startsWith('123456')||assin.startsWith('123456'))return v;
+  if(TEL_SERVICO_ASSIN.some(p=>assin.startsWith(p)))return v;
+  // 6. Celular com 9 dígitos
+  if(assin.length===9)return assin[0]==='9'?'+55'+ddd+assin:v;
+  // 7. Fixo (8 dígitos, 2–5)
+  if(/^[2-5]/.test(assin))return '+55'+ddd+assin;
+  // 8. Móvel legado sem o 9º dígito (8 dígitos, 6–9)
+  if(/^[6-9]/.test(assin))return '+55'+ddd+'9'+assin;
+  return v;
 }
 function limparMensalidade(v){
   if(v===null||v===undefined)return '';
@@ -1702,7 +1710,8 @@ function sanitizeFormula(v){
 }
 function sanitizeLinha(row){
   let o={};
-  Object.keys(row).forEach(k=>o[k]=sanitizeFormula(row[k]));
+  // v9.7: telefone em E.164 (+ seguido só de dígitos) não é fórmula — preservado
+  Object.keys(row).forEach(k=>o[k]=(k==='Número de Telefone'&&/^\+\d{8,15}$/.test(String(row[k]??'')))?row[k]:sanitizeFormula(row[k]));
   return o;
 }
 
