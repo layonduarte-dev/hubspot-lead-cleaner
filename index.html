@@ -334,7 +334,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>HubSpot Lead Cleaner v9.7</b> — aplicação standalone · tema Dark Purple · histórico local</div>
+  <div class="footer"><b>HubSpot Lead Cleaner v9.8</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -916,13 +916,23 @@ function headerCandidates(h){
   }
   return cands.sort((a,b)=>b.score-a.score);
 }
+/* v9.8: até duas colunas de telefone — 1ª → Número de Telefone, 2ª → Número de Celular (ordem da planilha) */
+const TEL_PROPS=['Número de Telefone','Número de Celular'];
+function ehColunaTelefone(h){let c=headerCandidates(h);return c.length>0&&c[0].target==='Número de Telefone';}
 /* Mapa global header->target por matching guloso. manual = overrides do usuário. */
 function buildHeaderMap(headers,manual){
   manual=manual||{};
-  let map={},usados=new Set();
+  let map={},usados=new Set(),telExtras=new Set();
   headers.forEach(h=>{let m=manual[h];if(m&&m!=='(auto)'){map[h]=m;if(m!=='(ignorar)'&&m!=='(preservar)')usados.add(m);}});
+  // v9.8: colunas de telefone na ordem em que aparecem ocupam os slots livres (Telefone, depois Celular)
+  let slotsTel=TEL_PROPS.filter(t=>!usados.has(t));
+  headers.forEach(h=>{
+    if(map[h]||!ehColunaTelefone(h))return;
+    if(slotsTel.length){const t=slotsTel.shift();map[h]=t;usados.add(t);}
+    else telExtras.add(h); // 3ª coluna de telefone em diante: não mapeia
+  });
   let todos=[];
-  headers.forEach(h=>{if(map[h])return;headerCandidates(h).forEach(c=>todos.push({h,target:c.target,score:c.score}));});
+  headers.forEach(h=>{if(map[h]||telExtras.has(h))return;headerCandidates(h).forEach(c=>todos.push({h,target:c.target,score:c.score}));});
   todos.sort((a,b)=>b.score-a.score);
   todos.forEach(({h,target})=>{if(map[h]||usados.has(target))return;map[h]=target;usados.add(target);});
   return map;
@@ -985,7 +995,7 @@ function calcVigenciaAlper(baseStr,periodoStr){
 }
 
 /* ===================== ESTADO + UI ===================== */
-const PROPS=['Nome','Sobrenome','Email','Número de Telefone','CPF/CNPJ','Nome da Empresa','Cargo','Cargo RH','Faixa de Colaboradores','Valor da Mensalidade','Cliente Sólides/Tangerino?','Observação','Informações de Negócios','Data de Vigência Alper','Outros'];
+const PROPS=['Nome','Sobrenome','Email','Número de Telefone','Número de Celular','CPF/CNPJ','Nome da Empresa','Cargo','Cargo RH','Faixa de Colaboradores','Valor da Mensalidade','Cliente Sólides/Tangerino?','Observação','Informações de Negócios','Data de Vigência Alper','Outros'];
 const COMPUTED=new Set(['Nome','Sobrenome','Cargo','Cargo RH','Faixa de Colaboradores','CPF/CNPJ']);
 let rawData=[], preserveCols=[], dfDados=[], dfInvalidos=[], logText='', detectInfo='', currentFileName='';
 let statDetailData={}; // {chave: {titulo, linhas}} — usado pelos cards clicáveis de estatística
@@ -1179,6 +1189,8 @@ function runPipeline(){
     let cargoRHKey=Object.keys(headerMap).find(k=>headerMap[k]==='Cargo RH');
     let nomeKey=Object.keys(headerMap).find(k=>headerMap[k]==='Nome');
     let faixaKey=Object.keys(headerMap).find(k=>headerMap[k]==='Faixa de Colaboradores');
+    let telKey=Object.keys(headerMap).find(k=>headerMap[k]==='Número de Telefone');
+    let celKey=Object.keys(headerMap).find(k=>headerMap[k]==='Número de Celular');
     let docKey=Object.keys(headerMap).find(k=>headerMap[k]==='CPF/CNPJ')||headers.find(h=>!allPreserve.includes(h)&&ehColunaDoc(h));
     let areaCols=headers.filter(h=>h!==roleKey&&!allPreserve.includes(h)&&isAreaColumn(h));
     // Data de Vigência Alper: base = primeira coluna da planilha (data/hora); fonte = coluna do período
@@ -1192,6 +1204,8 @@ function runPipeline(){
     // toda propriedade com coluna mapeada entra na saída (mesmo sem o chip marcado)
     Object.values(headerMap).forEach(t=>{if(PROPS.includes(t))selectedProps.add(t);});
     if(selectedProps.has('Nome'))selectedProps.add('Sobrenome');
+    // v9.8: havendo qualquer coluna de telefone, as duas propriedades saem na planilha
+    if(telKey||celKey){selectedProps.add('Número de Telefone');selectedProps.add('Número de Celular');}
 
     detectInfo='<strong>Propriedades selecionadas:</strong> '+[...selectedProps].map(esc).join(', ')+
       '<br><strong>Detectado:</strong> e-mail → <strong>'+esc(emailKey||'(nenhuma!)')+'</strong>'+
@@ -1199,6 +1213,8 @@ function runPipeline(){
       (roleKey?' · cargo → <strong>'+esc(roleKey)+'</strong>':'')+
       (areaCols.length?' · áreas → <strong>'+areaCols.map(esc).join(', ')+'</strong>':'')+
       (faixaKey?' · faixa → <strong>'+esc(faixaKey)+'</strong>':'')+
+      (telKey?' · telefone → <strong>'+esc(telKey)+'</strong>':'')+
+      (celKey?' · celular → <strong>'+esc(celKey)+'</strong>':'')+
       (docKey?' · CPF/CNPJ → <strong>'+esc(docKey)+'</strong>':'')+
       (selectedProps.has('Data de Vigência Alper')?' · vigência → base <strong>'+esc(baseDataCol||'(nenhuma!)')+'</strong> + período <strong>'+esc(vigenciaKey||'(nenhuma!)')+'</strong>':'');
     setProgress(40);
@@ -1258,11 +1274,17 @@ function runPipeline(){
         if(!docLimpo&&String(docOriginal||'').replace(/\D/g,''))mapped._docInvalido=docOriginal;
         mapped['CPF/CNPJ']=docLimpo;
       }
-      if(selectedProps.has('Número de Telefone')&&mapped['Número de Telefone']){
-        const telOriginal=mapped['Número de Telefone'];
+      // v9.8: cada coluna de origem é normalizada (E.164) de forma independente;
+      // com uma única coluna, o valor já corrigido é duplicado nas duas propriedades
+      if(telKey||celKey){
+        const telOriginal=telKey?(row[telKey]??''):'';
+        const celOriginal=celKey?(row[celKey]??''):'';
         const telLimpo=limparTelefone(telOriginal);
+        const celLimpo=limparTelefone(celOriginal);
         if(!telLimpo&&String(telOriginal).trim())mapped._telInvalido=telOriginal;
-        mapped['Número de Telefone']=telLimpo;
+        else if(!celLimpo&&String(celOriginal).trim())mapped._telInvalido=celOriginal;
+        if(telKey&&celKey){mapped['Número de Telefone']=telLimpo;mapped['Número de Celular']=celLimpo;}
+        else{const unico=telKey?telLimpo:celLimpo;mapped['Número de Telefone']=unico;mapped['Número de Celular']=unico;}
       }
       if(selectedProps.has('Valor da Mensalidade')&&mapped['Valor da Mensalidade'])mapped['Valor da Mensalidade']=limparMensalidade(mapped['Valor da Mensalidade']);
       if(selectedProps.has('Data de Vigência Alper')){
@@ -1710,8 +1732,8 @@ function sanitizeFormula(v){
 }
 function sanitizeLinha(row){
   let o={};
-  // v9.7: telefone em E.164 (+ seguido só de dígitos) não é fórmula — preservado
-  Object.keys(row).forEach(k=>o[k]=(k==='Número de Telefone'&&/^\+\d{8,15}$/.test(String(row[k]??'')))?row[k]:sanitizeFormula(row[k]));
+  // v9.7/v9.8: telefone/celular em E.164 (+ seguido só de dígitos) não é fórmula — preservado
+  Object.keys(row).forEach(k=>o[k]=((k==='Número de Telefone'||k==='Número de Celular')&&/^\+\d{8,15}$/.test(String(row[k]??'')))?row[k]:sanitizeFormula(row[k]));
   return o;
 }
 
