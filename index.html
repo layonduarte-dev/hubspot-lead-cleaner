@@ -334,7 +334,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>HubSpot Lead Cleaner v9.8</b> — aplicação standalone · tema Dark Purple · histórico local</div>
+  <div class="footer"><b>HubSpot Lead Cleaner v9.9</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -678,22 +678,29 @@ function limparDoc(v){
   return ''; // tamanho errado (não é CPF nem CNPJ) → zera
 }
 function ehColunaDoc(h){let n=norm(h);return n.includes('cpf')||n.includes('cnpj')||n.includes('documento')||n.includes('inscricao')||n==='doc';}
-/* v9.7: telefone corrigido para E.164 (+55DDDNUMERO). Só altera quando a correção é segura;
-   qualquer caso não corrigível (serviço, placeholder, DDD inválido, tamanho errado) mantém o valor original. */
+/* v9.9: telefone em E.164 (+55DDDNUMERO). Só sai preenchido o que recebe a formatação correta;
+   qualquer caso não corrigível (serviço, placeholder, DDD inválido, tamanho errado, ambíguo) fica EM BRANCO
+   para não subir informação errada. Célula com vários números (separados por / ; | , "e" "ou") → 1º formatável. */
 const TEL_SERVICO_INICIO=['0300','0500','0800','0900'];
 const TEL_SERVICO_ASSIN=['3003','4003','4004','4020','4002'];
 function limparTelefone(v){
   if(v===null||v===undefined)return '';
   let original=String(v).trim();
   if(['','nan','none','null','na'].includes(original.toLowerCase()))return '';
+  const partes=original.split(/\s*(?:[\/;|,]|\be\b|\bou\b)\s*/i).filter(x=>/\d/.test(x));
+  if(partes.length>1){for(const p of partes){const r=limparTelefoneUnico(p);if(r)return r;}return '';}
+  return limparTelefoneUnico(original);
+}
+function limparTelefoneUnico(original){
+  original=String(original).trim();
   // 1. Só dígitos
   let d=original.replace(/\D/g,'');
-  if(!d)return v;
-  // 2. Internacional explícito (+DDI ≠ 55): mantém +dígitos
-  if(original.startsWith('+')&&!d.startsWith('55'))return '+'+d;
-  // 9. Serviço (0300/0500/0800/0900/3003/4003/4004/4020/4002) e placeholders → não mexe
-  if(TEL_SERVICO_INICIO.some(p=>d.startsWith(p))||TEL_SERVICO_ASSIN.some(p=>d.startsWith(p)))return v;
-  if(/^(\d)\1+$/.test(d)||d.startsWith('123456'))return v;
+  if(!d)return '';
+  // 2. Internacional explícito (+DDI ≠ 55): mantém +dígitos (E.164: 8 a 15 dígitos)
+  if(original.startsWith('+')&&!d.startsWith('55'))return (d.length>=8&&d.length<=15)?'+'+d:'';
+  // 9. Serviço (0300/0500/0800/0900/3003/4003/4004/4020/4002) e placeholders → em branco
+  if(TEL_SERVICO_INICIO.some(p=>d.startsWith(p))||TEL_SERVICO_ASSIN.some(p=>d.startsWith(p)))return '';
+  if(/^(\d)\1+$/.test(d)||d.startsWith('123456'))return '';
   // 3. Zero(s) de trunk/operadora: remove só se sobrarem exatamente 10 ou 11 dígitos
   if(d.startsWith('0')){
     const semZero=d.replace(/^0+/,'');
@@ -701,21 +708,21 @@ function limparTelefone(v){
   }
   // 4. DDI 55 só é descascado com 12 ou 13 dígitos (11 dígitos começando com 55 = DDD 55)
   if((d.length===12||d.length===13)&&d.startsWith('55'))d=d.slice(2);
-  if(d.length!==10&&d.length!==11)return v;
+  if(d.length!==10&&d.length!==11)return '';
   // 5. DDD oficial Anatel
   const ddd=d.slice(0,2);
-  if(!DDD_VALIDOS.has(ddd))return v;
+  if(!DDD_VALIDOS.has(ddd))return '';
   const assin=d.slice(2);
   // 9. Placeholders / serviço no assinante
-  if(/^(\d)\1+$/.test(assin)||d.startsWith('123456')||assin.startsWith('123456'))return v;
-  if(TEL_SERVICO_ASSIN.some(p=>assin.startsWith(p)))return v;
-  // 6. Celular com 9 dígitos
-  if(assin.length===9)return assin[0]==='9'?'+55'+ddd+assin:v;
+  if(/^(\d)\1+$/.test(assin)||assin.startsWith('123456'))return '';
+  if(TEL_SERVICO_ASSIN.some(p=>assin.startsWith(p)))return '';
+  // 6. Celular com 9 dígitos (precisa começar com 9)
+  if(assin.length===9)return assin[0]==='9'?'+55'+ddd+assin:'';
   // 7. Fixo (8 dígitos, 2–5)
   if(/^[2-5]/.test(assin))return '+55'+ddd+assin;
   // 8. Móvel legado sem o 9º dígito (8 dígitos, 6–9)
   if(/^[6-9]/.test(assin))return '+55'+ddd+'9'+assin;
-  return v;
+  return '';
 }
 function limparMensalidade(v){
   if(v===null||v===undefined)return '';
