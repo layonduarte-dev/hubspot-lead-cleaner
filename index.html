@@ -334,7 +334,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>HubSpot Lead Cleaner v9.9</b> — aplicação standalone · tema Dark Purple · histórico local</div>
+  <div class="footer"><b>HubSpot Lead Cleaner v10.0</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -860,7 +860,7 @@ function mapCargoRH(role,areaText){
   }
 
   // Não é RH/DP
-  if(/\b(administrativo|financeiro|recepcionista|secretari[oa])\b/.test(ctx))return 'Administrativo/Financeiro';
+  if(/\b(administrativo|administrador|administradora|financeiro|recepcionista|secretari[oa])\b/.test(ctx))return 'Administrativo/Financeiro';
   return 'Outros';
 }
 /* Se o Cargo for SOMENTE indicação de área (RH, RH/DP, Recursos Humanos, DP, Departamento Pessoal),
