@@ -209,10 +209,10 @@
     <h2>📤 Planilha de entrada</h2>
     <div class="drop-zone" id="drop-zone" tabindex="0" role="button">
       <span class="ico">🗂️</span>
-      <p>Arraste um arquivo CSV aqui ou clique para selecionar</p>
-      <small>Suporta CSV em UTF-8 ou Latin1</small>
+      <p>Arraste um arquivo CSV, XLSX ou do Google Sheets aqui ou clique para selecionar</p>
+      <small>Suporta CSV, XLSX, XLS e ODS (Google Sheets: Arquivo → Fazer download → .xlsx ou .csv)</small>
     </div>
-    <input type="file" id="file-input" accept=".csv" class="hidden">
+    <input type="file" id="file-input" accept=".csv,.tsv,.txt,.xlsx,.xlsm,.xls,.ods" class="hidden">
     <div id="file-info" class="hidden" style="margin-top:.8rem;font-size:14px;color:var(--text-2)"></div>
   </div>
 
@@ -334,7 +334,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>HubSpot Lead Cleaner v10.0</b> — aplicação standalone · tema Dark Purple · histórico local</div>
+  <div class="footer"><b>HubSpot Lead Cleaner v10.1</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -1067,16 +1067,73 @@ dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));
 dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dragover');if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);});
 fi.addEventListener('change',()=>{if(fi.files[0])handleFile(fi.files[0]);});
 
+/* v10.1: aceita CSV (leitor nativo) e XLSX/XLS/ODS/TSV (SheetJS, carregado só quando necessário) */
+const XLSX_CDNS=['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js','https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'];
+let xlsxCarregando=null;
+function carregarXLSX(){
+  if(window.XLSX)return Promise.resolve();
+  if(xlsxCarregando)return xlsxCarregando;
+  xlsxCarregando=new Promise((res,rej)=>{
+    const tentar=i=>{
+      if(i>=XLSX_CDNS.length){xlsxCarregando=null;rej(new Error('não foi possível carregar o leitor de XLSX (verifique a internet)'));return;}
+      const s=document.createElement('script');s.src=XLSX_CDNS[i];
+      s.onload=()=>window.XLSX?res():tentar(i+1);
+      s.onerror=()=>{s.remove();tentar(i+1);};
+      document.head.appendChild(s);
+    };
+    tentar(0);
+  });
+  return xlsxCarregando;
+}
+/* Converte a 1ª aba com dados em [{cabeçalho: valor}], no mesmo formato do parseCSV.
+   Inteiros saem por extenso (telefone/CPF não viram 3,2E+10); datas e decimais usam o texto formatado da célula. */
+function parseWorkbook(buf){
+  const wb=XLSX.read(buf,{type:'array',cellNF:true,cellText:true});
+  for(const nome of wb.SheetNames){
+    const ws=wb.Sheets[nome];if(!ws||!ws['!ref'])continue;
+    const rg=XLSX.utils.decode_range(ws['!ref']);let rows=[];
+    for(let r=rg.s.r;r<=rg.e.r;r++){
+      let row=[];
+      for(let c=rg.s.c;c<=rg.e.c;c++){
+        const cell=ws[XLSX.utils.encode_cell({r,c})];let val='';
+        if(cell&&cell.v!==undefined&&cell.v!==null){
+          if(cell.t==='n'&&Number.isInteger(cell.v)&&!(cell.z&&XLSX.SSF.is_date(cell.z)))val=Math.abs(cell.v)<1e21?BigInt(cell.v).toString():String(cell.v);
+          else if(cell.t==='s')val=String(cell.v);
+          else val=cell.w!==undefined?String(cell.w):String(cell.v);
+        }
+        row.push(val);
+      }
+      rows.push(row);
+    }
+    rows=rows.filter(r=>r.some(c=>String(c).trim()!==''));
+    if(!rows.length)continue;
+    const headers=rows[0].map(h=>String(h).trim());
+    return rows.slice(1).map(r=>{let o={};headers.forEach((h,i)=>o[h]=String(r[i]??'').trim());return o;});
+  }
+  return [];
+}
+function ehArquivoPlanilha(nome){return /\.(xlsx|xlsm|xls|ods|tsv)$/i.test(nome||'');}
+function arquivoCarregado(file){
+  document.getElementById('file-info').innerHTML='✅ <strong>'+esc(file.name)+'</strong> — '+rawData.length+' linhas, '+(rawData.length?Object.keys(rawData[0]).length:0)+' colunas';
+  document.getElementById('file-info').classList.remove('hidden');
+  document.getElementById('btn-run').disabled=rawData.length===0;
+  if(rawData.length)toast('📄 '+file.name+' carregado — '+rawData.length+' linhas','ok');
+  autoSelectProps();
+}
 function handleFile(file){
   currentFileName=file.name||'planilha.csv';
+  if(ehArquivoPlanilha(file.name)){
+    toast('⏳ Lendo '+file.name+'...','ok');
+    carregarXLSX().then(()=>file.arrayBuffer()).then(buf=>{
+      try{rawData=parseWorkbook(buf);}catch(err){rawData=[];toast('Erro ao ler a planilha: '+err.message,'err');}
+      arquivoCarregado(file);
+    }).catch(err=>{rawData=[];toast('Erro ao ler a planilha: '+err.message,'err');arquivoCarregado(file);});
+    return;
+  }
   const reader=new FileReader();
   reader.onload=e=>{
     try{rawData=parseCSV(e.target.result);}catch(err){rawData=[];toast('Erro ao ler o CSV: '+err.message,'err');}
-    document.getElementById('file-info').innerHTML='✅ <strong>'+esc(file.name)+'</strong> — '+rawData.length+' linhas, '+(rawData.length?Object.keys(rawData[0]).length:0)+' colunas';
-    document.getElementById('file-info').classList.remove('hidden');
-    document.getElementById('btn-run').disabled=rawData.length===0;
-    if(rawData.length)toast('📄 '+file.name+' carregado — '+rawData.length+' linhas','ok');
-    autoSelectProps();
+    arquivoCarregado(file);
   };
   reader.readAsText(file,'UTF-8');
 }
@@ -1624,13 +1681,18 @@ function showStatDetail(chave){
 }
 function closeStatDetail(){document.getElementById('stat-modal').classList.add('hidden');}
 function showTab(name){['dados','invalidos','log'].forEach(t=>{document.getElementById('pane-'+t).classList.toggle('hidden',t!==name);document.getElementById('tab-'+t).classList.toggle('active',t===name);});}
+/* v10.1: arquivos baixados usam o nome do arquivo anexado (sem extensão) */
+function nomeBase(){
+  let n=String(currentFileName||'planilha').replace(/\.[^.\/\\]+$/,'').replace(/[\\\/:*?"<>|]+/g,'_').trim();
+  return n||'planilha';
+}
 function downloadCSV(type){
   let data=type==='dados'?dfDados:dfInvalidos;if(!data.length)return;
   let cols=Object.keys(data[0]);
   let csv=cols.map(esc2).join(',')+'\n'+data.map(r=>cols.map(c=>esc2(String(r[c]??''))).join(',')).join('\n');
   let blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
   let a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='hubspot_'+type+'_limpo_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+  a.download=type==='dados'?nomeBase()+'.csv':nomeBase()+' - inválidos.csv';a.click();
   toast('⬇️ CSV de '+(type==='dados'?'dados limpos':'inválidos')+' baixado','ok');
 }
 function downloadAll(){
@@ -1646,11 +1708,11 @@ function downloadAll(){
   let csv=cols.map(esc2).join(',')+'\n'+rows.map(r=>cols.map(c=>esc2(String(r[c]??''))).join(',')).join('\n');
   let blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
   let a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='hubspot_completo_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+  a.download=nomeBase()+' - completo.csv';a.click();
   toast('📦 Planilha completa baixada','ok');
 }
 /* v9.5: divide dfDados em N arquivos do mesmo tamanho (diferença máx. de 1 linha).
-   Nome: hubspot_dados_limpo_AAAA-MM-DD_arquivo 1 de N.csv */
+   Nome: <arquivo anexado> - arquivo 1 de N.csv */
 let splitN=0;
 function splitRanges(total,n){
   const base=Math.floor(total/n),resto=total%n,out=[];let ini=0;
@@ -1686,7 +1748,7 @@ function downloadParte(i,silencioso){
   const csv=cols.map(esc2).join(',')+'\n'+data.map(r=>cols.map(c=>esc2(String(r[c]??''))).join(',')).join('\n');
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='hubspot_dados_limpo_'+new Date().toISOString().slice(0,10)+'_arquivo '+(i+1)+' de '+splitN+'.csv';a.click();
+  a.download=nomeBase()+' - arquivo '+(i+1)+' de '+splitN+'.csv';a.click();
   if(!silencioso)toast('⬇️ Arquivo '+(i+1)+' de '+splitN+' baixado ('+data.length+' registros)','ok');
 }
 function downloadTodasPartes(){
@@ -2167,7 +2229,7 @@ function downloadHistoryLog(id){
   const blob=new Blob([h.log||''],{type:'text/plain;charset=utf-8'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download='relatorio_'+h.file.replace(/\.csv$/i,'').replace(/[^\w\-]+/g,'_')+'_'+h.ts.slice(0,10)+'.txt';
+  a.download='relatorio_'+h.file.replace(/\.[^.]+$/,'').replace(/[^\w\-]+/g,'_')+'_'+h.ts.slice(0,10)+'.txt';
   a.click();
   toast('⬇️ Relatório baixado','ok');
 }
