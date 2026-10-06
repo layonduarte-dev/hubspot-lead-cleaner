@@ -290,7 +290,15 @@
             <button class="btn-dl" onclick="downloadAll()">📦 Baixar tudo</button>
             <button class="btn-dl" onclick="abrirGoogleSheets()">📊 Abrir no Google Sheets</button>
             <button class="btn-dl" onclick="toggleSplit()">✂️ Dividir em arquivos</button>
+            <button class="btn-dl" id="btn-nomenclatura" onclick="toggleNomenclatura()">🏷️ Nomenclatura HubSpot</button>
           </div>
+        </div>
+        <div class="split-box hidden" id="nomenclatura-box">
+          <div class="split-row">
+            <span>Nome do CSV tratado:</span>
+            <div id="nomenclatura-chips" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+          </div>
+          <div style="margin-top:.6rem;font-size:13px;color:var(--text-2)">Arquivo: <strong id="nomenclatura-preview" style="color:var(--text)"></strong></div>
         </div>
         <div class="split-box hidden" id="split-box">
           <div class="split-row">
@@ -334,7 +342,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>HubSpot Lead Cleaner v10.1</b> — aplicação standalone · tema Dark Purple · histórico local</div>
+  <div class="footer"><b>HubSpot Lead Cleaner v10.2</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -1114,6 +1122,7 @@ function parseWorkbook(buf){
 }
 function ehArquivoPlanilha(nome){return /\.(xlsx|xlsm|xls|ods|tsv)$/i.test(nome||'');}
 function arquivoCarregado(file){
+  renderNomenclatura();
   document.getElementById('file-info').innerHTML='✅ <strong>'+esc(file.name)+'</strong> — '+rawData.length+' linhas, '+(rawData.length?Object.keys(rawData[0]).length:0)+' colunas';
   document.getElementById('file-info').classList.remove('hidden');
   document.getElementById('btn-run').disabled=rawData.length===0;
@@ -1686,13 +1695,40 @@ function nomeBase(){
   let n=String(currentFileName||'planilha').replace(/\.[^.\/\\]+$/,'').replace(/[\\\/:*?"<>|]+/g,'_').trim();
   return n||'planilha';
 }
+/* v10.2: nomenclatura HubSpot no CSV tratado (dados limpos e arquivos divididos) */
+const NOMENCLATURAS=[['','Sem nomenclatura'],['[Martech][Import] - ','[Martech][Import]'],['[Martech][Import][Específico] - ','[Martech][Import][Específico]']];
+const NOMENCLATURA_KEY='hlc_nomenclatura';
+let nomenclatura='';
+try{const s=localStorage.getItem(NOMENCLATURA_KEY);if(s!==null&&NOMENCLATURAS.some(n=>n[0]===s))nomenclatura=s;}catch(e){}
+function nomeHubspot(){
+  // sem nomenclatura: nome exato do anexo; com nomenclatura: evita prefixo duplicado ao reprocessar
+  if(!nomenclatura)return nomeBase();
+  const base=nomeBase().replace(/^\[Martech\]\[Import\](\[Espec[ií]fico\])?\s*-\s*/i,'')||'planilha';
+  return nomenclatura+base;
+}
+function renderNomenclatura(){
+  const box=document.getElementById('nomenclatura-chips');if(!box)return;
+  box.innerHTML=NOMENCLATURAS.map((n,i)=>'<div class="chip'+(n[0]===nomenclatura?' on':'')+'" onclick="setNomenclatura('+i+')"><span class="dot"></span>'+esc(n[1])+'</div>').join('');
+  document.getElementById('nomenclatura-preview').textContent=nomeHubspot()+'.csv';
+  const atual=NOMENCLATURAS.find(n=>n[0]===nomenclatura);
+  document.getElementById('btn-nomenclatura').textContent='🏷️ Nomenclatura HubSpot'+(nomenclatura?': '+atual[1]:'');
+}
+function setNomenclatura(i){
+  nomenclatura=NOMENCLATURAS[i][0];
+  try{localStorage.setItem(NOMENCLATURA_KEY,nomenclatura);}catch(e){}
+  renderNomenclatura();
+}
+function toggleNomenclatura(){
+  document.getElementById('nomenclatura-box').classList.toggle('hidden');
+  renderNomenclatura();
+}
 function downloadCSV(type){
   let data=type==='dados'?dfDados:dfInvalidos;if(!data.length)return;
   let cols=Object.keys(data[0]);
   let csv=cols.map(esc2).join(',')+'\n'+data.map(r=>cols.map(c=>esc2(String(r[c]??''))).join(',')).join('\n');
   let blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
   let a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download=type==='dados'?nomeBase()+'.csv':nomeBase()+' - inválidos.csv';a.click();
+  a.download=type==='dados'?nomeHubspot()+'.csv':nomeBase()+' - inválidos.csv';a.click();
   toast('⬇️ CSV de '+(type==='dados'?'dados limpos':'inválidos')+' baixado','ok');
 }
 function downloadAll(){
@@ -1748,7 +1784,7 @@ function downloadParte(i,silencioso){
   const csv=cols.map(esc2).join(',')+'\n'+data.map(r=>cols.map(c=>esc2(String(r[c]??''))).join(',')).join('\n');
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download=nomeBase()+' - arquivo '+(i+1)+' de '+splitN+'.csv';a.click();
+  a.download=nomeHubspot()+' - arquivo '+(i+1)+' de '+splitN+'.csv';a.click();
   if(!silencioso)toast('⬇️ Arquivo '+(i+1)+' de '+splitN+' baixado ('+data.length+' registros)','ok');
 }
 function downloadTodasPartes(){
@@ -2266,6 +2302,7 @@ document.addEventListener('keydown',e=>{
 });
 
 renderHistory();
+renderNomenclatura();
 _initHistoryCollapse();
 </script>
 </body>
