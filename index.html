@@ -229,11 +229,20 @@
     <div id="obs-box" class="hidden">
       <textarea id="obs-text" placeholder="Texto que será preenchido em todas as linhas da coluna 'Observação'. Ex: Captado na Feira RH 2026"></textarea>
     </div>
-    <div id="evento-box" class="hidden">
-      <input type="text" id="evento-text" style="margin-top:.6rem" placeholder="Nome do evento para a propriedade 'Último evento participado' (preenchido em todas as linhas). Ex: Feira RH 2026">
-    </div>
     <div id="outros-box" class="hidden">
       <textarea id="outros-text" placeholder="Texto para a coluna Outros. Use () como marcadores — cada () será preenchido na ordem pelos valores das colunas marcadas como 'Juntar em Outros 1', 'Juntar em Outros 2', etc. Ex: Este cliente possui o produto (), sua faixa é ()."></textarea>
+    </div>
+  </div>
+
+  <div class="card" id="evento-card">
+    <h2>🎟️ Planilha de Evento <span style="color:var(--red);font-size:13px">*obrigatório</span></h2>
+    <p class="sub">Esta planilha é de um evento? Se sim, informe o nome — ele vai para a propriedade "Último evento participado" em todas as linhas.</p>
+    <div class="prop-grid">
+      <div class="chip" id="evento-sim" onclick="setEvento('sim')"><span class="dot"></span>Sim</div>
+      <div class="chip" id="evento-nao" onclick="setEvento('nao')"><span class="dot"></span>Não</div>
+    </div>
+    <div id="evento-box" class="hidden">
+      <input type="text" id="evento-text" style="margin-top:.6rem" placeholder="Nome do evento. Ex: Feira RH 2026">
     </div>
   </div>
 
@@ -345,7 +354,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>HubSpot Lead Cleaner v10.3</b> — aplicação standalone · tema Dark Purple · histórico local</div>
+  <div class="footer"><b>HubSpot Lead Cleaner v10.4</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -1014,7 +1023,8 @@ function calcVigenciaAlper(baseStr,periodoStr){
 
 /* ===================== ESTADO + UI ===================== */
 const PROPS=['Nome','Sobrenome','Email','Número de Telefone','Número de Celular','CPF/CNPJ','Nome da Empresa','Cargo','Cargo RH','Faixa de Colaboradores','Valor da Mensalidade','Cliente Sólides/Tangerino?','Observação','Informações de Negócios','Data de Vigência Alper','Último evento participado','Outros'];
-const PROP_LABEL={'Último evento participado':'Planilha de Evento'}; // rótulo do chip ≠ nome da propriedade
+const PROPS_OCULTAS=new Set(['Último evento participado']); // controladas pelo card Planilha de Evento
+let eventoResp=null; // null (não respondido) | 'sim' | 'nao'
 const COMPUTED=new Set(['Nome','Sobrenome','Cargo','Cargo RH','Faixa de Colaboradores','CPF/CNPJ']);
 let rawData=[], preserveCols=[], dfDados=[], dfInvalidos=[], logText='', detectInfo='', currentFileName='';
 let statDetailData={}; // {chave: {titulo, linhas}} — usado pelos cards clicáveis de estatística
@@ -1025,10 +1035,10 @@ let aiCandidates=[]; // {idx, email, nomeAtual, sobrenomeAtual}
 /* chips de propriedade */
 const propGrid=document.getElementById('prop-grid');
 function renderProps(){
-  propGrid.innerHTML=PROPS.map(p=>{
+  propGrid.innerHTML=PROPS.filter(p=>!PROPS_OCULTAS.has(p)).map(p=>{
     let on=selectedProps.has(p)?' on':'';
     let locked=(p==='Email')?' locked':'';
-    return '<div class="chip'+on+locked+'" data-p="'+esc(p)+'" onclick="toggleProp(this)"><span class="dot"></span>'+esc(PROP_LABEL[p]||p)+'</div>';
+    return '<div class="chip'+on+locked+'" data-p="'+esc(p)+'" onclick="toggleProp(this)"><span class="dot"></span>'+esc(p)+'</div>';
   }).join('');
 }
 function toggleAlper(el){
@@ -1051,13 +1061,21 @@ function toggleAlper(el){
   }
   renderChips();
 }
+function setEvento(v){
+  eventoResp=v;
+  document.getElementById('evento-sim').classList.toggle('on',v==='sim');
+  document.getElementById('evento-nao').classList.toggle('on',v==='nao');
+  document.getElementById('evento-box').classList.toggle('hidden',v!=='sim');
+  document.getElementById('evento-card').style.borderColor='';
+  if(v==='sim'){selectedProps.add('Último evento participado');document.getElementById('evento-text').focus();}
+  else selectedProps.delete('Último evento participado');
+}
 function toggleProp(el){
   let p=el.getAttribute('data-p');
   if(p==='Email')return; // sempre obrigatório
   if(selectedProps.has(p))selectedProps.delete(p);else selectedProps.add(p);
   el.classList.toggle('on');
   document.getElementById('outros-box').classList.toggle('hidden',!selectedProps.has('Outros'));
-  document.getElementById('evento-box').classList.toggle('hidden',!selectedProps.has('Último evento participado'));
   document.getElementById('obs-box').classList.toggle('hidden',!selectedProps.has('Observação'));
   document.getElementById('alper-chip-wrap').style.display=selectedProps.has('Observação')?'flex':'none';
   if(!selectedProps.has('Observação')&&alperAtivo){alperAtivo=false;document.getElementById('alper-chip').classList.remove('on');}
@@ -1162,7 +1180,6 @@ function autoSelectProps(){
   if(headers.some(isAreaColumn)||selectedProps.has('Cargo')){selectedProps.add('Cargo');selectedProps.add('Cargo RH');}
   renderProps();
   document.getElementById('outros-box').classList.toggle('hidden',!selectedProps.has('Outros'));
-  document.getElementById('evento-box').classList.toggle('hidden',!selectedProps.has('Último evento participado'));
   document.getElementById('obs-box').classList.toggle('hidden',!selectedProps.has('Observação'));
   document.getElementById('alper-chip-wrap').style.display=selectedProps.has('Observação')?'flex':'none';
   if(!selectedProps.has('Observação')&&alperAtivo){alperAtivo=false;document.getElementById('alper-chip').classList.remove('on');}
@@ -1248,6 +1265,11 @@ function setProgress(p){document.getElementById('progress-bar').classList.remove
 
 /* ===================== PIPELINE ===================== */
 function runPipeline(){
+  const evCard=document.getElementById('evento-card');
+  if(!eventoResp){evCard.style.borderColor='var(--red)';evCard.scrollIntoView&&evCard.scrollIntoView({behavior:'smooth',block:'center'});toast('Responda se é uma Planilha de Evento (Sim ou Não) antes de higienizar.','err');return;}
+  if(eventoResp==='sim'&&!document.getElementById('evento-text').value.trim()){evCard.style.borderColor='var(--red)';document.getElementById('evento-text').focus();toast('Preencha o nome do evento.','err');return;}
+  evCard.style.borderColor='';
+  if(eventoResp==='sim')selectedProps.add('Último evento participado');
   setProgress(15);document.getElementById('btn-run').disabled=true;
   setTimeout(()=>{
     const headers=Object.keys(rawData[0]||{});
@@ -1281,7 +1303,6 @@ function runPipeline(){
     const outrosText=document.getElementById('outros-text').value.trim();
     const obsText=document.getElementById('obs-text').value.trim();
     const eventoText=document.getElementById('evento-text').value.trim();
-    if(selectedProps.has('Último evento participado')&&!eventoText)toast('Planilha de Evento marcada sem nome do evento — coluna "Último evento participado" sai vazia (ou com a coluna mapeada).','warn');
     // toda propriedade com coluna mapeada entra na saída (mesmo sem o chip marcado)
     Object.values(headerMap).forEach(t=>{if(PROPS.includes(t))selectedProps.add(t);});
     if(selectedProps.has('Nome'))selectedProps.add('Sobrenome');
