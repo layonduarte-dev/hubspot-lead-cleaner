@@ -240,7 +240,11 @@
     <div class="prop-grid">
       <div class="chip" id="evento-sim" onclick="setEvento('sim')"><span class="dot"></span>Sim</div>
       <div class="chip" id="evento-nao" onclick="setEvento('nao')"><span class="dot"></span>Não</div>
+      <span id="evento-mod-sep" class="hidden" style="width:1px;background:var(--border-2);margin:0 6px"></span>
+      <div class="chip hidden" id="evento-presencial" onclick="setEventoModo('presencial')"><span class="dot"></span>Presencial</div>
+      <div class="chip hidden" id="evento-online" onclick="setEventoModo('online')"><span class="dot"></span>Online</div>
     </div>
+    <div id="evento-presencial-aviso" class="hidden" style="margin-top:.7rem;padding:9px 12px;border:1px solid var(--amber);border-left-width:4px;border-radius:8px;background:rgba(245,180,84,.08);color:var(--amber);font-size:13px">⚠️ Evento presencial: lembre de nomear a Lista no HubSpot como <b>MAILING PRESENCIAL</b>.</div>
     <div id="evento-box" class="hidden">
       <input type="text" id="evento-text" style="margin-top:.6rem" placeholder="Nome do evento. Ex: Feira RH 2026">
     </div>
@@ -354,7 +358,7 @@
     </div>
   </div>
 
-  <div class="footer"><b>HubSpot Lead Cleaner v10.4</b> — aplicação standalone · tema Dark Purple · histórico local</div>
+  <div class="footer"><b>HubSpot Lead Cleaner v10.5</b> — aplicação standalone · tema Dark Purple · histórico local</div>
 </div>
 
 <div class="modal-overlay hidden" id="stat-modal" onclick="if(event.target===this)closeStatDetail()">
@@ -1025,6 +1029,7 @@ function calcVigenciaAlper(baseStr,periodoStr){
 const PROPS=['Nome','Sobrenome','Email','Número de Telefone','Número de Celular','CPF/CNPJ','Nome da Empresa','Cargo','Cargo RH','Faixa de Colaboradores','Valor da Mensalidade','Cliente Sólides/Tangerino?','Observação','Informações de Negócios','Data de Vigência Alper','Último evento participado','Outros'];
 const PROPS_OCULTAS=new Set(['Último evento participado']); // controladas pelo card Planilha de Evento
 let eventoResp=null; // null (não respondido) | 'sim' | 'nao'
+let eventoModo=null; // v10.5: null | 'presencial' | 'online' (obrigatório quando eventoResp==='sim')
 const COMPUTED=new Set(['Nome','Sobrenome','Cargo','Cargo RH','Faixa de Colaboradores','CPF/CNPJ']);
 let rawData=[], preserveCols=[], dfDados=[], dfInvalidos=[], logText='', detectInfo='', currentFileName='';
 let statDetailData={}; // {chave: {titulo, linhas}} — usado pelos cards clicáveis de estatística
@@ -1061,11 +1066,21 @@ function toggleAlper(el){
   }
   renderChips();
 }
+/* v10.5: modalidade do evento — presencial exibe lembrete do nome da Lista */
+function setEventoModo(m){
+  eventoModo=m;
+  document.getElementById('evento-presencial').classList.toggle('on',m==='presencial');
+  document.getElementById('evento-online').classList.toggle('on',m==='online');
+  document.getElementById('evento-presencial-aviso').classList.toggle('hidden',m!=='presencial');
+  if(m)document.getElementById('evento-card').style.borderColor='';
+}
 function setEvento(v){
   eventoResp=v;
   document.getElementById('evento-sim').classList.toggle('on',v==='sim');
   document.getElementById('evento-nao').classList.toggle('on',v==='nao');
   document.getElementById('evento-box').classList.toggle('hidden',v!=='sim');
+  ['evento-mod-sep','evento-presencial','evento-online'].forEach(id=>document.getElementById(id).classList.toggle('hidden',v!=='sim'));
+  if(v!=='sim')setEventoModo(null);
   document.getElementById('evento-card').style.borderColor='';
   if(v==='sim'){selectedProps.add('Último evento participado');document.getElementById('evento-text').focus();}
   else selectedProps.delete('Último evento participado');
@@ -1268,6 +1283,7 @@ function runPipeline(){
   const evCard=document.getElementById('evento-card');
   if(!eventoResp){evCard.style.borderColor='var(--red)';evCard.scrollIntoView&&evCard.scrollIntoView({behavior:'smooth',block:'center'});toast('Responda se é uma Planilha de Evento (Sim ou Não) antes de higienizar.','err');return;}
   if(eventoResp==='sim'&&!document.getElementById('evento-text').value.trim()){evCard.style.borderColor='var(--red)';document.getElementById('evento-text').focus();toast('Preencha o nome do evento.','err');return;}
+  if(eventoResp==='sim'&&!eventoModo){evCard.style.borderColor='var(--red)';evCard.scrollIntoView&&evCard.scrollIntoView({behavior:'smooth',block:'center'});toast('Informe se o evento foi Presencial ou Online.','err');return;}
   evCard.style.borderColor='';
   if(eventoResp==='sim')selectedProps.add('Último evento participado');
   setProgress(15);document.getElementById('btn-run').disabled=true;
